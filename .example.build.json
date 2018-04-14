@@ -1,0 +1,26 @@
+{
+  "home": "/tmp/builds",
+  "async": true,
+  "projects": [{
+    "url": "git@github.com:You/your-project.git",
+    "path": "your-project",
+    "artifacts": "build",
+    "branches": [
+      "*"
+    ],
+    "scripts": [
+      "composer install"
+    ]
+  }, {
+    "url": "git@github.com:You/your-other-project.git",
+    "path": "your-other-project",
+    "artifacts": "docs",
+    "branches": [
+      "master",
+      "develop"
+    ],
+    "scripts": [
+      "vendor/bin/apigen generate src tests --destination docs"
+    ]
+  }]
+}
