@@ -161,8 +161,6 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 
 	fmt.Printf(" [%s] - object database loaded, %d objects.\n", proj.Path, odblen)
 
-	//	printRepoDebug(repo)
-
 	if proj.Branches[0] == "*" {
 		fmt.Printf(" [%s] - project is configured to have all branches built.\n", proj.Path)
 		proj.Branches = []string{"master", "develop"}
@@ -217,8 +215,6 @@ func runProjectScripts(dir string, proj project) {
 			fmt.Printf("%s\n", string(stdout))
 			panic(err)
 		}
-
-		//fmt.Printf("%s\n", string(stdout))
 	}
 }
 
@@ -318,14 +314,6 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 		return nil, err
 	}
 
-	fmt.Printf(" [%s] - looking up commit details for current head\n", path)
-
-	// Find the commit at HEAD
-	//headCommit, err := repo.LookupCommit(head.Target())
-	//if err != nil {
-	//	return nil, err
-	//}
-
 	fmt.Printf(" [%s] - head is now at %v\n", path, head.Target())
 
 	return repo, nil
@@ -335,8 +323,8 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	checkoutOpts := &git.CheckoutOpts{
 		Strategy: git.CheckoutSafe | git.CheckoutRecreateMissing | git.CheckoutAllowConflicts | git.CheckoutUseTheirs,
 	}
+
 	//Getting the reference for the remote branch
-	// remoteBranch, err := repo.References.Lookup("refs/remotes/origin/" + branchName)
 	remoteBranch, err := repo.LookupBranch("origin/"+branchName, git.BranchRemote)
 	if err != nil {
 		log.Print("Failed to find remote branch: " + branchName)
@@ -395,59 +383,8 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 		log.Print("Failed to checkout tree " + branchName)
 		return err
 	}
+
 	// Setting the Head to point to our branch
 	repo.SetHead("refs/heads/" + branchName)
 	return nil
-}
-
-func printRepoDebug(repo *git.Repository) {
-	odb, err := repo.Odb()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err2 := odb.ForEach(func(oid *git.Oid) error {
-		obj, err := repo.Lookup(oid)
-		if err != nil {
-			return err
-		}
-
-		//switch obj := obj.(type) {
-		//default:
-		//case *git.Blob:
-		//	break
-		fmt.Printf("==================================\n")
-		fmt.Printf("obj:  %s\n", obj)
-		fmt.Printf("Type: %v\n", obj.Type())
-		fmt.Printf("Id:   %v\n", obj.Id())
-		//fmt.Printf("Size: %s\n", obj.Size())
-		//case *git.Commit:
-		//	fmt.Printf("==================================\n")
-		//	fmt.Printf("obj:  %s\n", obj)
-		//	fmt.Printf("Type: %s\n", obj.Type())
-		//	fmt.Printf("Id:   %s\n", obj.Id())
-		//	author := obj.Author()
-		//	fmt.Printf("    Author:\n        Name:  %s\n        Email: %s\n        Date:  %s\n", author.Name, author.Email, author.When)
-		//	committer := obj.Committer()
-		//	fmt.Printf("    Committer:\n        Name:  %s\n        Email: %s\n        Date:  %s\n", committer.Name, committer.Email, committer.When)
-		//	fmt.Printf("    ParentCount: %s\n", int(obj.ParentCount()))
-		//	fmt.Printf("    TreeId:      %s\n", obj.TreeId())
-		//	fmt.Printf("    Message:\n\n        %s\n\n", strings.Replace(obj.Message(), "\n", "\n        ", -1))
-		//fmt.Printf("obj.Parent: %s\n", obj.Parent())
-		//fmt.Printf("obj.ParentId: %s\n", obj.ParentId())
-		//fmt.Printf("obj.Tree: %s\n", obj.Tree())
-		//case *git.Tree:
-		//	break
-		//	fmt.Printf("==================================\n")
-		//	fmt.Printf("obj:  %s\n", obj)
-		//	fmt.Printf("Type: %s\n", obj.Type())
-		//	fmt.Printf("Id:   %s\n", obj.Id())
-		//	fmt.Printf("    EntryCount: %s\n", obj.EntryCount())
-		//}
-		return nil
-	})
-
-	if err2 != nil {
-		log.Fatal("Lookup:", err2)
-	}
 }
