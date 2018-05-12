@@ -28,11 +28,11 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -55,8 +55,8 @@ type project struct {
 
 func main() {
 	log.Println("Dan's Multi-Project Builder")
-
-	fmt.Println("Reading configuration file...")
+	log.Printf("Running on OS: \"%s\", Architecture: \"%s\"\n", runtime.GOOS, runtime.GOARCH)
+	log.Println("Reading configuration file...")
 	configFile := ".build.json"
 	cfgByte, err := ioutil.ReadFile(configFile)
 	if err != nil {
@@ -79,14 +79,14 @@ func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
 		panic(err)
 	}
 
-	fmt.Printf("Running from \"%s\" with configured home directory \"%s\".\n", pwd, config.Home)
+	log.Printf("Running from \"%s\" with configured home directory \"%s\".\n", pwd, config.Home)
 
 	for _, proj := range config.Projects {
 		if config.Async == true {
 			// Async enabled, use goroutines :-)
 			go func(config *configuration, proj project, cloneOpts *git.CloneOptions) {
 				defer w.Done()
-				fmt.Printf("Processing project \"%s\" from url: \"%s\".\n", proj.Path, proj.URL)
+				log.Printf("Processing project \"%s\" from url: \"%s\".\n", proj.Path, proj.URL)
 				processRepo(config, proj, cloneOpts)
 			}(config, proj, cloneOpts)
 		} else {
@@ -99,20 +99,20 @@ func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
 		w.Wait()
 	}
 
-	fmt.Println("Finished processing all configured projects.")
+	log.Println("Finished processing all configured projects.")
 }
 
 func processRepo(config *configuration, proj project, cloneOpts *git.CloneOptions) {
 	var repo *git.Repository
 	var twd string
 
-	fmt.Printf(" [%s] - checking for existing clone...\n", proj.Path)
+	log.Printf(" [%s] - checking for existing clone...\n", proj.Path)
 
 	// Target working directory for this repo
 	twd = config.Home + "/" + proj.Path
 
 	if _, err := os.Stat(twd); os.IsNotExist(err) {
-		fmt.Printf(" [%s] - project at \"%s\" does not exist, creating clone...\n", proj.Path, twd)
+		log.Printf(" [%s] - project at \"%s\" does not exist, creating clone...\n", proj.Path, twd)
 		repo, err = cloneRepo(twd, proj.URL, proj.Path, cloneOpts)
 		if err != nil {
 			panic(err)
@@ -120,7 +120,7 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 	}
 
 	if _, err := os.Stat(proj.Path); err == nil {
-		fmt.Printf(" [%s] - opening repository in \"%s\"...\n", proj.Path, twd)
+		log.Printf(" [%s] - opening repository in \"%s\"...\n", proj.Path, twd)
 		repo, err = git.OpenRepository(twd)
 		if err != nil {
 			panic(err)
@@ -136,19 +136,19 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 	repoConfig.SetBool("remote.origin.prune", true)
 
 	if repo.IsBare() {
-		fmt.Printf(" [%s] - bare repository loaded and configured\n", proj.Path)
+		log.Printf(" [%s] - bare repository loaded and configured\n", proj.Path)
 	} else {
-		fmt.Printf(" [%s] - repository loaded and configured\n", proj.Path)
+		log.Printf(" [%s] - repository loaded and configured\n", proj.Path)
 	}
 
-	fmt.Printf(" [%s] - loading object database\n", proj.Path)
+	log.Printf(" [%s] - loading object database\n", proj.Path)
 
 	odb, err := repo.Odb()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf(" [%s] - counting objects\n", proj.Path)
+	log.Printf(" [%s] - counting objects\n", proj.Path)
 
 	odblen := 0
 	err = odb.ForEach(func(oid *git.Oid) error {
@@ -159,23 +159,23 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 		log.Fatal(err)
 	}
 
-	fmt.Printf(" [%s] - object database loaded, %d objects.\n", proj.Path, odblen)
+	log.Printf(" [%s] - object database loaded, %d objects.\n", proj.Path, odblen)
 
 	if proj.Branches[0] == "*" {
-		fmt.Printf(" [%s] - project is configured to have all branches built.\n", proj.Path)
+		log.Printf(" [%s] - project is configured to have all branches built.\n", proj.Path)
 		proj.Branches = []string{"master", "develop"}
 	} else {
-		fmt.Printf(" [%s] - project is configured to have the following branches built: %s\n", proj.Path, strings.Join(proj.Branches[:], ", "))
+		log.Printf(" [%s] - project is configured to have the following branches built: %s\n", proj.Path, strings.Join(proj.Branches[:], ", "))
 	}
 
 	for _, branchName := range proj.Branches {
-		fmt.Printf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
+		log.Printf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
 		err = checkoutBranch(repo, branchName)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		fmt.Printf(" [%s] - on branch \"%s\", processing...\n", proj.Path, branchName)
+		log.Printf(" [%s] - on branch \"%s\", processing...\n", proj.Path, branchName)
 		processBranch(config, proj, twd, branchName)
 	}
 
@@ -183,21 +183,21 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 
 func processBranch(config *configuration, proj project, twd string, branchName string) {
 
-	fmt.Printf(" [%s] - running project scripts...\n", proj.Path)
+	log.Printf(" [%s] - running project scripts...\n", proj.Path)
 
 	runProjectScripts(twd, proj)
 
 	artifacts := twd + "/" + proj.Artifacts
 
 	if _, err := os.Stat(artifacts); os.IsNotExist(err) {
-		fmt.Printf(" [%s] ! build artifacts could not be found, maybe the build failed?\n", proj.Path)
-		fmt.Printf(" [%s] ! expected build artifacts in: \"%s\"\n", proj.Path, artifacts)
-		fmt.Printf(" [%s] ! no build will be published for this project/branch.\n", proj.Path)
+		log.Printf(" [%s] ! build artifacts could not be found, maybe the build failed?\n", proj.Path)
+		log.Printf(" [%s] ! expected build artifacts in: \"%s\"\n", proj.Path, artifacts)
+		log.Printf(" [%s] ! no build will be published for this project/branch.\n", proj.Path)
 		return
 	}
 
 	if _, err := os.Stat(artifacts); err == nil {
-		fmt.Printf(" [%s] - build artifacts found in: \"%s\"...\n", proj.Path, artifacts)
+		log.Printf(" [%s] - build artifacts found in: \"%s\"...\n", proj.Path, artifacts)
 	}
 
 	processArtifacts(config.Home, artifacts, proj.Path, branchName)
@@ -205,14 +205,14 @@ func processBranch(config *configuration, proj project, twd string, branchName s
 }
 
 func runProjectScripts(dir string, proj project) {
-	fmt.Printf(" [%s] - project has %d scripts configured\n", proj.Path, len(proj.Scripts))
+	log.Printf(" [%s] - project has %d scripts configured\n", proj.Path, len(proj.Scripts))
 
 	for _, script := range proj.Scripts {
-		fmt.Printf(" [%s] - executing project script: \"%s\"...\n", proj.Path, script)
+		log.Printf(" [%s] - executing project script: \"%s\"...\n", proj.Path, script)
 		stdout, err := execInDir(dir, script)
 		if err != nil {
-			fmt.Printf(" [%s] - error executing project script: \"%s\"...\n", proj.Path, script)
-			fmt.Printf("%s\n", string(stdout))
+			log.Printf(" [%s] - error executing project script: \"%s\"...\n", proj.Path, script)
+			log.Printf("%s\n", string(stdout))
 			panic(err)
 		}
 	}
@@ -231,38 +231,38 @@ func execInDir(dir string, command string) ([]byte, error) {
 }
 
 func processArtifacts(home string, artifacts string, project string, branchName string) {
-	fmt.Printf(" [%s] - processing build artifacts for project \"%s\", branch \"%s\".\n", project, project, branchName)
+	log.Printf(" [%s] - processing build artifacts for project \"%s\", branch \"%s\".\n", project, project, branchName)
 
 	destParent := home + "/artifacts/" + project
 	destination := destParent + "/" + branchName
 
-	fmt.Printf(" [%s] - build artifacts will be stored in: \"%s\".\n", project, destination)
+	log.Printf(" [%s] - build artifacts will be stored in: \"%s\".\n", project, destination)
 
-	fmt.Printf(" [%s] - removing any previous artifacts from the destination\n", project)
+	log.Printf(" [%s] - removing any previous artifacts from the destination\n", project)
 	err := os.RemoveAll(destination)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf(" [%s] - creating destination directory structure\n", project)
+	log.Printf(" [%s] - creating destination directory structure\n", project)
 	err = os.MkdirAll(destParent, 0755)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf(" [%s] - moving build artifacts into destination\n", project)
+	log.Printf(" [%s] - moving build artifacts into destination\n", project)
 	err = os.Rename(artifacts, destination)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf(" [%s] - artifact processing completed.\n", project)
+	log.Printf(" [%s] - artifact processing completed.\n", project)
 }
 
 func parseConfig(cfg string) *configuration {
 	res := configuration{}
 	json.Unmarshal([]byte(cfg), &res)
-	fmt.Printf("Loaded Configuration: %d Projects Configured.\n", len(res.Projects))
+	log.Printf("Loaded Configuration: %d Projects Configured.\n", len(res.Projects))
 	return &res
 }
 
@@ -283,13 +283,13 @@ func configureCloneOpts() *git.CloneOptions {
 }
 
 func credentialsCallback(url string, username string, allowedTypes git.CredType) (git.ErrorCode, *git.Cred) {
-	fmt.Printf(" [git] - running credentials callback with username \"%s\" for url \"%s\"\n", username, url)
+	log.Printf(" [git] - running credentials callback with username \"%s\" for url \"%s\"\n", username, url)
 	ret, cred := git.NewCredSshKeyFromAgent(username)
 	return git.ErrorCode(ret), &cred
 }
 
 func certificateCheckCallback(cert *git.Certificate, valid bool, hostname string) git.ErrorCode {
-	fmt.Printf(" [git] - running certificate check callback for hostname \"%s\"\n", hostname)
+	log.Printf(" [git] - running certificate check callback for hostname \"%s\"\n", hostname)
 	if hostname != "github.com" && hostname != "gitlab.com" {
 		return git.ErrUser
 	}
@@ -298,7 +298,7 @@ func certificateCheckCallback(cert *git.Certificate, valid bool, hostname string
 
 func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions) (*git.Repository, error) {
 
-	fmt.Printf(" [%s] - cloning repository from \"%s\" into \"%s\"\n", path, url, twd)
+	log.Printf(" [%s] - cloning repository from \"%s\" into \"%s\"\n", path, url, twd)
 
 	// Clone
 	repo, err := git.Clone(url, twd, cloneOpts)
@@ -306,7 +306,7 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 		return nil, err
 	}
 
-	fmt.Printf(" [%s] - clone completed, finding head ref\n", path)
+	log.Printf(" [%s] - clone completed, finding head ref\n", path)
 
 	// Get HEAD ref
 	head, err := repo.Head()
@@ -314,7 +314,7 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 		return nil, err
 	}
 
-	fmt.Printf(" [%s] - head is now at %v\n", path, head.Target())
+	log.Printf(" [%s] - head is now at %v\n", path, head.Target())
 
 	return repo, nil
 }
