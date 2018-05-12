@@ -1,3 +1,4 @@
-artifacts
-.build.json
+/artifacts/
+/.build.json
 /.gtm/
+/go-build
