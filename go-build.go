@@ -109,7 +109,7 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 	log.Printf(" [%s] - checking for existing clone...\n", proj.Path)
 
 	// Target working directory for this repo
-	twd = config.Home + "/" + proj.Path
+	twd = config.Home + "/projects/" + proj.Path
 
 	if _, err := os.Stat(twd); os.IsNotExist(err) {
 		log.Printf(" [%s] - project at \"%s\" does not exist, creating clone...\n", proj.Path, twd)
