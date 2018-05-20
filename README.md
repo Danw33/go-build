@@ -6,6 +6,21 @@ This is ideal when working with many branches or repositories, as it allows easy
 
 The tool can be used in combination with CI systems such as Travis and Jenkins.
 
+## Configuration
+
+`.build.json` - This file is the configuration loaded by the `go-build` utility.
+It contains the definition of the repositories that will be built, including their
+location (URL and Path), branches, scrips, and artifacts.
+  - `home` - The "home" directory under which the utility will run (must be writable)
+  - `async` - `true` to run builds in parallel, `false` to run in sequence.
+  - `projects` - Array of project definitions, made up of:
+    - `url` - Git URL for the Project
+    - `path` - Path to use when cloning, and Publishing artifacts (Slugified name)
+    - `artifacts` - Path to extract built artifacts from
+    - `branches` - Array of branch names to build or `['*']` for all remote branches.
+    - `scripts` - Array of script strings to execute (the build process)
+
+
 ## License
 
 The Multi-Project Build Tool is released under the MIT License
@@ -32,4 +47,3 @@ HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
-

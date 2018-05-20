@@ -2,7 +2,7 @@
   "home": "/tmp/builds",
   "async": true,
   "projects": [{
-    "url": "git@github.com:You/your-project.git",
+    "url": "git://git@github.com/You/your-project.git",
     "path": "your-project",
     "artifacts": "build",
     "branches": [
@@ -12,7 +12,7 @@
       "composer install"
     ]
   }, {
-    "url": "git@github.com:You/your-other-project.git",
+    "url": "git://git@github.com/You/your-other-project.git",
     "path": "your-other-project",
     "artifacts": "docs",
     "branches": [
