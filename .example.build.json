@@ -5,7 +5,7 @@
     "level": "info"
   },
   "projects": [{
-    "url": "git://git@github.com/You/your-project.git",
+    "url": "git+ssh://git@github.com/You/your-project.git",
     "path": "your-project",
     "artifacts": "build",
     "branches": [
