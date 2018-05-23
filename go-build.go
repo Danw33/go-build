@@ -29,14 +29,15 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/libgit2/git2go"
+	"github.com/op/go-logging"
 )
 
 type configuration struct {
@@ -53,44 +54,73 @@ type project struct {
 	Scripts   []string `json:"scripts"`
 }
 
+var log = logging.MustGetLogger("example")
+
+var format = logging.MustStringFormatter(
+	`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}`,
+)
+
 func main() {
-	log.Println("Dan's Multi-Project Builder")
-	log.Printf("Running on OS: \"%s\", Architecture: \"%s\"\n", runtime.GOOS, runtime.GOARCH)
-	log.Println("Reading configuration file...")
+	start := time.Now()
+
+	logBackend := logging.NewLogBackend(os.Stdout, "", 0)
+	logBackendFormatted := logging.NewBackendFormatter(logBackend, format)
+	logging.SetBackend(logBackendFormatted)
+
+	log.Info("go-build: Danw33's Multi-Project Build Utility")
+	log.Infof("Running on OS: \"%s\", Architecture: \"%s\"\n", runtime.GOOS, runtime.GOARCH)
+
+	log.Debug("Reading configuration file...")
 	configFile := ".build.json"
 	cfgByte, err := ioutil.ReadFile(configFile)
 	if err != nil {
+		log.Critical(err)
 		panic(err)
 	}
 	cfg := string(cfgByte)
 	config := parseConfig(cfg)
 
+	log.Infof("Configuration Loaded.")
+
 	cloneOpts := configureCloneOpts()
 
+	log.Debug("Starting Project Processor...")
 	processProjects(config, cloneOpts)
+
+	log.Infof("All projects completed in %s", time.Since(start))
 }
 
 func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
+
+	log.Debug("Configuring WaitGroup")
 	var w sync.WaitGroup
 	w.Add(len(config.Projects))
 
+	log.Debug("Detecting Working Directory")
 	pwd, err := os.Getwd()
 	if err != nil {
+		log.Critical(err)
 		panic(err)
 	}
 
-	log.Printf("Running from \"%s\" with configured home directory \"%s\".\n", pwd, config.Home)
+	log.Infof("Running from \"%s\" with configured home directory \"%s\".\n", pwd, config.Home)
+
+	if config.Async == true {
+		log.Debug("Asynchronous Mode Enabled: Projects will be built in parallel.")
+	}
 
 	for _, proj := range config.Projects {
 		if config.Async == true {
-			// Async enabled, use goroutines :-)
+			// Async enabled, use goroutines :-
 			go func(config *configuration, proj project, cloneOpts *git.CloneOptions) {
 				defer w.Done()
-				log.Printf("Processing project \"%s\" from url: \"%s\".\n", proj.Path, proj.URL)
+				log.Infof("Processing project \"%s\" from url: \"%s\" in asynchronous mode.\n", proj.Path, proj.URL)
 				processRepo(config, proj, cloneOpts)
 			}(config, proj, cloneOpts)
 		} else {
 			// Async disabled, run normally in loop :-(
+			log.Debug("Asynchronous Mode Disabled: Projects will be built in sequence.")
+			log.Infof("Processing project \"%s\" from url: \"%s\".\n", proj.Path, proj.URL)
 			processRepo(config, proj, cloneOpts)
 		}
 	}
@@ -99,56 +129,70 @@ func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
 		w.Wait()
 	}
 
-	log.Println("Finished processing all configured projects.")
+	log.Info("Finished processing all configured projects.")
 }
 
 func processRepo(config *configuration, proj project, cloneOpts *git.CloneOptions) {
 	var repo *git.Repository
 	var twd string
 
-	log.Printf(" [%s] - checking for existing clone...\n", proj.Path)
+	pStart := time.Now()
+
+	log.Debugf(" [%s] - checking for existing clone...\n", proj.Path)
 
 	// Target working directory for this repo
 	twd = config.Home + "/projects/" + proj.Path
 
 	if _, err := os.Stat(twd); os.IsNotExist(err) {
-		log.Printf(" [%s] - project at \"%s\" does not exist, creating clone...\n", proj.Path, twd)
+		log.Infof(" [%s] - project at \"%s\" does not exist, creating clone...\n", proj.Path, twd)
 		repo, err = cloneRepo(twd, proj.URL, proj.Path, cloneOpts)
 		if err != nil {
+			log.Critical(err)
 			panic(err)
 		}
 	}
 
-	if _, err := os.Stat(proj.Path); err == nil {
-		log.Printf(" [%s] - opening repository in \"%s\"...\n", proj.Path, twd)
+	if _, err := os.Stat(twd); err == nil {
+		log.Infof(" [%s] - opening repository in \"%s\"...\n", proj.Path, twd)
 		repo, err = git.OpenRepository(twd)
 		if err != nil {
+			log.Critical(err)
 			panic(err)
 		}
+	} else {
+		log.Debugf(" [%s] - error opening repository in \"%s\"\n", proj.Path, twd)
+		log.Critical(err)
+		panic(err)
 	}
+
+	log.Debugf(" [%s] - loading repository configuration...\n", proj.Path)
 
 	repoConfig, err := repo.Config()
 	if err != nil {
+		log.Critical(err)
 		panic(err)
 	}
 	defer repoConfig.Free()
 
+	log.Debugf(" [%s] - enabling remote origin pruning...\n", proj.Path)
 	repoConfig.SetBool("remote.origin.prune", true)
 
+	log.Debugf(" [%s] - testing repository type (isBare)...\n", proj.Path)
 	if repo.IsBare() {
-		log.Printf(" [%s] - bare repository loaded and configured\n", proj.Path)
+		log.Debugf(" [%s] - bare repository loaded and configured\n", proj.Path)
 	} else {
-		log.Printf(" [%s] - repository loaded and configured\n", proj.Path)
+		log.Debugf(" [%s] - repository loaded and configured\n", proj.Path)
 	}
 
-	log.Printf(" [%s] - loading object database\n", proj.Path)
+	log.Debugf(" [%s] - loading object database\n", proj.Path)
 
 	odb, err := repo.Odb()
 	if err != nil {
-		log.Fatal(err)
+		log.Critical(err)
+		panic(err)
 	}
 
-	log.Printf(" [%s] - counting objects\n", proj.Path)
+	log.Debugf(" [%s] - counting objects\n", proj.Path)
 
 	odblen := 0
 	err = odb.ForEach(func(oid *git.Oid) error {
@@ -156,63 +200,73 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 		return nil
 	})
 	if err != nil {
-		log.Fatal(err)
+		log.Critical(err)
+		panic(err)
 	}
 
-	log.Printf(" [%s] - object database loaded, %d objects.\n", proj.Path, odblen)
+	log.Debugf(" [%s] - object database loaded, %d objects.\n", proj.Path, odblen)
 
+	log.Debugf(" [%s] - loading branch processing configuration...\n", proj.Path)
 	if proj.Branches[0] == "*" {
-		log.Printf(" [%s] - project is configured to have all branches built.\n", proj.Path)
+		log.Debugf(" [%s] - project is configured to have all branches built.\n", proj.Path)
 		proj.Branches = []string{"master", "develop"}
+		log.Warningf(" [%s] - project is set for wildcard branch build, but it is not yet supported; Only master and develop will be built.\n", proj.Path)
 	} else {
-		log.Printf(" [%s] - project is configured to have the following branches built: %s\n", proj.Path, strings.Join(proj.Branches[:], ", "))
+		log.Debugf(" [%s] - project is configured to have the following branches built: %s\n", proj.Path, strings.Join(proj.Branches[:], ", "))
 	}
 
 	for _, branchName := range proj.Branches {
-		log.Printf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
+		log.Debugf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
+		bStart := time.Now()
 		err = checkoutBranch(repo, branchName)
 		if err != nil {
-			log.Fatal(err)
+			log.Critical(err)
+			panic(err)
 		}
 
-		log.Printf(" [%s] - on branch \"%s\", processing...\n", proj.Path, branchName)
+		log.Infof(" [%s] - on branch \"%s\", processing...\n", proj.Path, branchName)
 		processBranch(config, proj, twd, branchName)
+		log.Infof(" [%s] - completed branch \"%s\" in: %s\n", proj.Path, branchName, time.Since(bStart))
 	}
 
+	log.Infof(" [%s] - completed all configured branches in: %s\n", proj.Path, time.Since(pStart))
 }
 
 func processBranch(config *configuration, proj project, twd string, branchName string) {
 
-	log.Printf(" [%s] - running project scripts...\n", proj.Path)
+	log.Debugf(" [%s] - running project scripts...\n", proj.Path)
 
 	runProjectScripts(twd, proj)
 
+	log.Debugf(" [%s] - configuring artifacts pick-up path...\n", proj.Path)
 	artifacts := twd + "/" + proj.Artifacts
 
 	if _, err := os.Stat(artifacts); os.IsNotExist(err) {
-		log.Printf(" [%s] ! build artifacts could not be found, maybe the build failed?\n", proj.Path)
-		log.Printf(" [%s] ! expected build artifacts in: \"%s\"\n", proj.Path, artifacts)
-		log.Printf(" [%s] ! no build will be published for this project/branch.\n", proj.Path)
+		log.Warningf(" [%s] ! build artifacts could not be found, maybe the build failed?\n", proj.Path)
+		log.Infof(" [%s] ! expected build artifacts in: \"%s\"\n", proj.Path, artifacts)
+		log.Noticef(" [%s] ! no build will be published for this project/branch.\n", proj.Path)
 		return
 	}
 
 	if _, err := os.Stat(artifacts); err == nil {
-		log.Printf(" [%s] - build artifacts found in: \"%s\"...\n", proj.Path, artifacts)
+		log.Debugf(" [%s] - build artifacts found in: \"%s\"...\n", proj.Path, artifacts)
 	}
 
+	log.Debugf(" [%s] - processing artifacts from pick-up location...\n", proj.Path)
 	processArtifacts(config.Home, artifacts, proj.Path, branchName)
 
 }
 
 func runProjectScripts(dir string, proj project) {
-	log.Printf(" [%s] - project has %d scripts configured\n", proj.Path, len(proj.Scripts))
+	log.Debugf(" [%s] - project has %d scripts configured\n", proj.Path, len(proj.Scripts))
 
 	for _, script := range proj.Scripts {
-		log.Printf(" [%s] - executing project script: \"%s\"...\n", proj.Path, script)
+		log.Debugf(" [%s] - executing project script: \"%s\"...\n", proj.Path, script)
 		stdout, err := execInDir(dir, script)
 		if err != nil {
-			log.Printf(" [%s] - error executing project script: \"%s\"...\n", proj.Path, script)
-			log.Printf("%s\n", string(stdout))
+			log.Debugf(" [%s] - error executing project script: \"%s\"...\n", proj.Path, script)
+			log.Debugf("%s\n", string(stdout))
+			log.Critical(err)
 			panic(err)
 		}
 	}
@@ -231,38 +285,42 @@ func execInDir(dir string, command string) ([]byte, error) {
 }
 
 func processArtifacts(home string, artifacts string, project string, branchName string) {
-	log.Printf(" [%s] - processing build artifacts for project \"%s\", branch \"%s\".\n", project, project, branchName)
+	log.Infof(" [%s] - processing build artifacts for project \"%s\", branch \"%s\".\n", project, project, branchName)
 
 	destParent := home + "/artifacts/" + project
 	destination := destParent + "/" + branchName
 
-	log.Printf(" [%s] - build artifacts will be stored in: \"%s\".\n", project, destination)
+	log.Debugf(" [%s] - build artifacts will be stored in: \"%s\".\n", project, destination)
 
-	log.Printf(" [%s] - removing any previous artifacts from the destination\n", project)
+	log.Debugf(" [%s] - removing any previous artifacts from the destination\n", project)
 	err := os.RemoveAll(destination)
 	if err != nil {
+		log.Critical(err)
 		panic(err)
 	}
 
-	log.Printf(" [%s] - creating destination directory structure\n", project)
+	log.Debugf(" [%s] - creating destination directory structure\n", project)
 	err = os.MkdirAll(destParent, 0755)
 	if err != nil {
+		log.Critical(err)
 		panic(err)
 	}
 
-	log.Printf(" [%s] - moving build artifacts into destination\n", project)
+	log.Debugf(" [%s] - moving build artifacts into destination\n", project)
 	err = os.Rename(artifacts, destination)
 	if err != nil {
+		log.Critical(err)
 		panic(err)
 	}
 
-	log.Printf(" [%s] - artifact processing completed.\n", project)
+	log.Debugf(" [%s] - artifact processing completed.\n", project)
 }
 
 func parseConfig(cfg string) *configuration {
 	res := configuration{}
+	log.Debug("Parsing Configuration using json.Unmarshal...\n")
 	json.Unmarshal([]byte(cfg), &res)
-	log.Printf("Loaded Configuration: %d Projects Configured.\n", len(res.Projects))
+	log.Debugf("Loaded Configuration: %d Projects Configured.\n", len(res.Projects))
 	return &res
 }
 
@@ -283,22 +341,24 @@ func configureCloneOpts() *git.CloneOptions {
 }
 
 func credentialsCallback(url string, username string, allowedTypes git.CredType) (git.ErrorCode, *git.Cred) {
-	log.Printf(" [git] - running credentials callback with username \"%s\" for url \"%s\"\n", username, url)
+	log.Debugf(" [git] - running credentials callback with username \"%s\" for url \"%s\"\n", username, url)
 	ret, cred := git.NewCredSshKeyFromAgent(username)
 	return git.ErrorCode(ret), &cred
 }
 
 func certificateCheckCallback(cert *git.Certificate, valid bool, hostname string) git.ErrorCode {
-	log.Printf(" [git] - running certificate check callback for hostname \"%s\"\n", hostname)
+	log.Debugf(" [git] - running certificate check callback for hostname \"%s\"\n", hostname)
 	if hostname != "github.com" && hostname != "gitlab.com" {
+		log.Debugf(" [git] - certificate check callback passed for hostname \"%s\"\n", hostname)
 		return git.ErrUser
 	}
+	log.Warningf(" [git] - certificate check callback passed for hostname \"%s\"\n", hostname)
 	return 0
 }
 
 func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions) (*git.Repository, error) {
 
-	log.Printf(" [%s] - cloning repository from \"%s\" into \"%s\"\n", path, url, twd)
+	log.Debugf(" [%s] - cloning repository from \"%s\" into \"%s\"\n", path, url, twd)
 
 	// Clone
 	repo, err := git.Clone(url, twd, cloneOpts)
@@ -306,7 +366,7 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 		return nil, err
 	}
 
-	log.Printf(" [%s] - clone completed, finding head ref\n", path)
+	log.Debugf(" [%s] - clone completed, finding head ref\n", path)
 
 	// Get HEAD ref
 	head, err := repo.Head()
@@ -314,7 +374,7 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 		return nil, err
 	}
 
-	log.Printf(" [%s] - head is now at %v\n", path, head.Target())
+	log.Debugf(" [%s] - head is now at %v\n", path, head.Target())
 
 	return repo, nil
 }
@@ -327,7 +387,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	//Getting the reference for the remote branch
 	remoteBranch, err := repo.LookupBranch("origin/"+branchName, git.BranchRemote)
 	if err != nil {
-		log.Print("Failed to find remote branch: " + branchName)
+		log.Error("Failed to find remote branch: " + branchName)
 		return err
 	}
 	defer remoteBranch.Free()
@@ -335,7 +395,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Lookup for commit from remote branch
 	commit, err := repo.LookupCommit(remoteBranch.Target())
 	if err != nil {
-		log.Print("Failed to find remote branch commit: " + branchName)
+		log.Error("Failed to find remote branch commit: " + branchName)
 		return err
 	}
 	defer commit.Free()
@@ -346,14 +406,14 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 		// Creating local branch
 		localBranch, err = repo.CreateBranch(branchName, commit, false)
 		if err != nil {
-			log.Print("Failed to create local branch: " + branchName)
+			log.Error("Failed to create local branch: " + branchName)
 			return err
 		}
 
 		// Setting upstream to origin branch
 		err = localBranch.SetUpstream("origin/" + branchName)
 		if err != nil {
-			log.Print("Failed to create upstream to origin/" + branchName)
+			log.Error("Failed to create upstream to origin/" + branchName)
 			return err
 		}
 	}
@@ -365,14 +425,14 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Getting the tree for the branch
 	localCommit, err := repo.LookupCommit(localBranch.Target())
 	if err != nil {
-		log.Print("Failed to lookup for commit in local branch " + branchName)
+		log.Error("Failed to lookup for commit in local branch " + branchName)
 		return err
 	}
 	defer localCommit.Free()
 
 	tree, err := repo.LookupTree(localCommit.TreeId())
 	if err != nil {
-		log.Print("Failed to lookup for tree " + branchName)
+		log.Error("Failed to lookup for tree " + branchName)
 		return err
 	}
 	defer tree.Free()
@@ -380,7 +440,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Checkout the tree
 	err = repo.CheckoutTree(tree, checkoutOpts)
 	if err != nil {
-		log.Print("Failed to checkout tree " + branchName)
+		log.Error("Failed to checkout tree " + branchName)
 		return err
 	}
 
