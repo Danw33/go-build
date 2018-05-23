@@ -43,7 +43,12 @@ import (
 type configuration struct {
 	Home     string    `json:"home"`
 	Async    bool      `json:"async"`
+	Log      logger    `json:"log"`
 	Projects []project `json:"projects"`
+}
+
+type logger struct {
+	Level string `json:"level"`
 }
 
 type project struct {
@@ -63,9 +68,20 @@ var format = logging.MustStringFormatter(
 func main() {
 	start := time.Now()
 
+	// Setup logger, defualt to INFO level
 	logBackend := logging.NewLogBackend(os.Stdout, "", 0)
 	logBackendFormatted := logging.NewBackendFormatter(logBackend, format)
 	logging.SetBackend(logBackendFormatted)
+	logging.SetLevel(logging.INFO, "")
+
+	// Check for verbose flag, if it's present, up the level to DEBUG
+	verbose := false
+	for _, arg := range os.Args {
+		if arg == "-v" {
+			verbose = true
+			logging.SetLevel(logging.DEBUG, "")
+		}
+	}
 
 	log.Info("go-build: Danw33's Multi-Project Build Utility")
 	log.Infof("Running on OS: \"%s\", Architecture: \"%s\"\n", runtime.GOOS, runtime.GOARCH)
@@ -80,6 +96,15 @@ func main() {
 	cfg := string(cfgByte)
 	config := parseConfig(cfg)
 
+	// Adjust the log level agian, this time from the confguration file, but only if verbose isn't passed
+	if verbose == false {
+		level, err := logging.LogLevel(config.Log.Level)
+		if err != nil {
+			log.Critical(err)
+		}
+		logging.SetLevel(level, "")
+	}
+
 	log.Infof("Configuration Loaded.")
 
 	cloneOpts := configureCloneOpts()
@@ -87,7 +112,7 @@ func main() {
 	log.Debug("Starting Project Processor...")
 	processProjects(config, cloneOpts)
 
-	log.Infof("All projects completed in %s", time.Since(start))
+	log.Infof("All projects completed in: %s", time.Since(start))
 }
 
 func processProjects(config *configuration, cloneOpts *git.CloneOptions) {

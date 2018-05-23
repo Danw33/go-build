@@ -1,6 +1,9 @@
 {
   "home": "/tmp/builds",
   "async": true,
+  "log": {
+    "level": "info"
+  },
   "projects": [{
     "url": "git://git@github.com/You/your-project.git",
     "path": "your-project",
