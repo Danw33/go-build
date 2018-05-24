@@ -65,6 +65,8 @@ var format = logging.MustStringFormatter(
 	`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}`,
 )
 
+var pwd string
+
 func main() {
 	start := time.Now()
 
@@ -86,6 +88,15 @@ func main() {
 	log.Info("go-build: Danw33's Multi-Project Build Utility")
 	log.Infof("Running on OS: \"%s\", Architecture: \"%s\"\n", runtime.GOOS, runtime.GOARCH)
 
+	log.Debug("Finding working directory...")
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Critical(err)
+		panic(err)
+	}
+	pwd = cwd
+
 	log.Debug("Reading configuration file...")
 	configFile := ".build.json"
 	cfgByte, err := ioutil.ReadFile(configFile)
@@ -105,6 +116,12 @@ func main() {
 		logging.SetLevel(level, "")
 	}
 
+	// Check the configured home path
+	if config.Home == "" || config.Home == "./" {
+		log.Debugf("config.Home has been left blank or configured relative, the current working directory will be used.")
+		config.Home = pwd
+	}
+
 	log.Infof("Configuration Loaded.")
 
 	cloneOpts := configureCloneOpts()
@@ -120,13 +137,6 @@ func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
 	log.Debug("Configuring WaitGroup")
 	var w sync.WaitGroup
 	w.Add(len(config.Projects))
-
-	log.Debug("Detecting Working Directory")
-	pwd, err := os.Getwd()
-	if err != nil {
-		log.Critical(err)
-		panic(err)
-	}
 
 	log.Infof("Running from \"%s\" with configured home directory \"%s\".\n", pwd, config.Home)
 
