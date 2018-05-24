@@ -21,7 +21,7 @@ cd $sources
 git clone git://git.libssh.org/projects/libssh.git
 mkdir build-libssh ; cd build-libssh
 cmake ../libssh/
-make install
+#make install
 
 export CMAKE_PREFIX_PATH="$sources/build-libssh/lib;$CMAKE_PREFIX_PATH"
 export PKG_CONFIG_PATH="$sources/build-libssh/lib/pkgconfig;$PKG_CONFIG_PATH"
@@ -34,7 +34,7 @@ git clone https://github.com/libgit2/libgit2.git
 mkdir build-libgit2 && cd build-libgit2
 cmake ../libgit2/
 cmake --build .
-make install
+#make install
 
 export CMAKE_PREFIX_PATH="$sources/build-libgit2/lib;$CMAKE_PREFIX_PATH"
 export PKG_CONFIG_PATH="$sources/build-libgit2/lib/pkgconfig;$PKG_CONFIG_PATH"
