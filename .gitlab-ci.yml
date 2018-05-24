@@ -1,0 +1,18 @@
+image: golang:latest
+cache:
+  untracked: true
+  key: "$CI_BUILD_REF_NAME"
+stages:
+  - build
+build:
+  stage: build
+  script:
+    - make dependencies
+    - make build
+  cache:
+    paths:
+      - sources/
+  artifacts:
+    paths:
+      - go-build
+    expire_in: 1hr
