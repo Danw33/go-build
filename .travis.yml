@@ -3,3 +3,18 @@ language: go
 go:
   - "1.10.x"
   - master
+
+addons:
+  apt:
+    update: true
+    packages:
+      - curl
+      - libssl-dev
+      - libssh-dev
+      - libgit2-dev
+
+git:
+  depth: 3
+
+before_install:
+  - make dependencies
