@@ -18,7 +18,7 @@ sources="$(pwd)"
 
 # Fetch and build libssh from source
 cd $sources
-git clone git://git.libssh.org/projects/libssh.git
+git clone git://git.libssh.org/projects/libssh.git --depth 1
 mkdir build-libssh ; cd build-libssh
 cmake ../libssh/
 #make install
@@ -30,7 +30,7 @@ export CPPFLAGS="-I$sources/build-libssh/include $CPPFLAGS"
 
 # Fetch and build libgit2 from source
 cd $sources
-git clone https://github.com/libgit2/libgit2.git
+git clone https://github.com/libgit2/libgit2.git --depth 1
 mkdir build-libgit2 && cd build-libgit2
 cmake ../libgit2/
 cmake --build .
