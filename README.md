@@ -1,4 +1,4 @@
-# go-build: Multi-Project Build Utility
+# go-build: Multi-Project Build Utility [![Build Status](https://travis-ci.org/Danw33/go-build.svg?branch=master)](https://travis-ci.org/Danw33/go-build)
 
 go-build is a multi-project, multi-branch build tool that can compile multiple branches of multiple projects to give per-branch and per-project artifacts.
 
