@@ -157,6 +157,17 @@ func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
 		if config.Async == true {
 			// Async enabled, use goroutines :-
 			go func(config *configuration, proj project, cloneOpts *git.CloneOptions) {
+				defer func() {
+					if r := recover(); r != nil {
+						if _, ok := r.(runtime.Error); ok {
+							log.Critical("Processing Project", proj.Path, "caused a runtime error:", r)
+							panic(r)
+						}
+						log.Error("Processing Project", proj.Path, "failed:", r)
+					} else {
+						log.Info("Processing Project", proj.Path, "completed")
+					}
+				}()
 				defer w.Done()
 				log.Infof("Processing project \"%s\" from url: \"%s\" in asynchronous mode.\n", proj.Path, proj.URL)
 				processRepo(config, proj, cloneOpts)
