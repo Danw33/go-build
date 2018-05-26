@@ -26,6 +26,7 @@ SOFTWARE.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -34,6 +35,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/libgit2/git2go"
@@ -57,6 +59,13 @@ type project struct {
 	Artifacts string   `json:"artifacts"`
 	Branches  []string `json:"branches"`
 	Scripts   []string `json:"scripts"`
+}
+
+type scriptVariables struct {
+	Project   string
+	Branch    string
+	URL       string
+	Artifacts string
 }
 
 var log = logging.MustGetLogger("example")
@@ -271,7 +280,7 @@ func processBranch(config *configuration, proj project, twd string, branchName s
 
 	log.Debugf(" [%s] - running project scripts...\n", proj.Path)
 
-	runProjectScripts(twd, proj)
+	runProjectScripts(twd, branchName, proj)
 
 	log.Debugf(" [%s] - configuring artifacts pick-up path...\n", proj.Path)
 	artifacts := twd + "/" + proj.Artifacts
@@ -292,14 +301,29 @@ func processBranch(config *configuration, proj project, twd string, branchName s
 
 }
 
-func runProjectScripts(dir string, proj project) {
+func runProjectScripts(dir string, branchName string, proj project) {
 	log.Debugf(" [%s] - project has %d scripts configured\n", proj.Path, len(proj.Scripts))
 
 	for _, script := range proj.Scripts {
-		log.Debugf(" [%s] - executing project script: \"%s\"...\n", proj.Path, script)
-		stdout, err := execInDir(dir, script)
+
+		// Setup the variables that can be substituted in the script for this run
+		log.Debugf(" [%s] - preparing project script: \"%s\"...\n", proj.Path, script)
+
+		scriptSubs := scriptVariables{proj.Path, branchName, proj.URL, proj.Artifacts}
+
+		tmpl, err := template.New("script").Parse(script)
+		scriptFinal := &bytes.Buffer{}
+		tmpl.Execute(scriptFinal, scriptSubs)
 		if err != nil {
-			log.Debugf(" [%s] - error executing project script: \"%s\"...\n", proj.Path, script)
+			log.Critical(err)
+		}
+		scriptFinalStr := scriptFinal.String()
+
+		log.Debugf(" [%s] - executing project script: \"%s\"...\n", proj.Path, scriptFinalStr)
+
+		stdout, err := execInDir(dir, scriptFinalStr)
+		if err != nil {
+			log.Debugf(" [%s] - error executing project script: \"%s\"...\n", proj.Path, scriptFinalStr)
 			log.Debugf("%s\n", string(stdout))
 			log.Critical(err)
 			panic(err)
