@@ -4,7 +4,7 @@ go-build is a multi-project, multi-branch build tool that can compile multiple b
 
 This is ideal when working with many branches or repositories, as it allows easy publication or viewing of the compiled projects for testing and demonstration.
 
-The tool can be used in combination with CI systems such as Travis and Jenkins to bundle artifacts of many projects for download and testing, and additionaly can be used with services such as GitHub Pages and GitLab Pages to publish live, user-testable development artifacts.
+The tool can be used in combination with CI systems such as Travis and Jenkins to bundle artifacts of many projects for download and testing, and additionally can be used with services such as GitHub Pages and GitLab Pages to publish live, user-testable development artifacts.
 
 ## Configuration
 
@@ -20,7 +20,17 @@ location (URL and Path), branches, scrips, and artifacts.
     - `path` - Path to use when cloning, and Publishing artifacts (Slugified name)
     - `artifacts` - Path to extract built artifacts from
     - `branches` - Array of branch names to build or `['*']` for all remote branches.
-    - `scripts` - Array of script strings to execute (the build process)
+    - `scripts` - Array of script strings to execute (the build process); May contain script variables (see below).
+
+### Script Variables
+The `scripts` section of the `go-build` project configuration may use the following variables which will be replaced before the script is executed:
+
+ - `{{.Project}}` - The name (path) of the project.
+ - `{{.Branch}}` - The branch under which the script is to run.
+ - `{{.URL}}` - The clone url of the project.
+ - `{{.Artifacts}}` - The path to the project's output artifacts.
+
+Script variables are processed using go's [template](https://golang.org/pkg/text/template/) package, this gives a powerful set of Actions, Arguments, and Pipelines which can be combined with the above variables within a script.
 
 ### Run-time flags
 
@@ -29,13 +39,94 @@ The following flags can be passed to `go-build` at runtime:
 
 ## Prerequisites
 
-`go-build` utilises the `git2go` bindings of `libgit2`, which require that libgit2 is
-installed. In order to use SSH-based project urls, `libssh` is also required.
+`go-build` utilises the [git2go](https://github.com/libgit2/git2go) bindings of `libgit2`, which require that libgit2 is
+installed. In order to use SSH-based project urls, `libssh2` and `libssl` are also required.
 
+## Building
+
+### Building on macOS (darwin)
+
+Ensure `GOPATH` is set, then install prerequisites:
+
+```bash
+brew update
+brew upgrade # Optional, but recommended
+brew install git go upx # Up-to-date git, go compiler and upx packer (optional)
+brew install openssl libssh2 libgit2 # libssl, libssh2, libgit2 (required)
+```
+
+Then, setup the environment to use the libraries installed via brew:
+
+```bash
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib"
+export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/usr/local/opt/openssl/lib/pkgconfig"
+export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/usr/local/opt/libssh2/lib/pkgconfig"
+export OPENSSLDIR=/usr/local/opt/openssl
+```
+(Optional: Add the above to `~/.bashrc` or `~/.bash_profile` to persist between sessions)
+
+Fetch the go packages:
+
+```bash
+go get -d github.com/op/go-logging
+go get -d github.com/libgit2/git2go
+```
+
+And setup git2go's libgit2 submodule as per their documentation:
+
+```bash
+cd $GOPATH/src/github.com/libgit2/git2go
+git submodule update --init
+make install-static
+```
+
+Finally, build `go-build` using the supplied makefile:
+
+```bash
+make build
+make pack # Optional: Pack the binary using UPX
+```
+
+
+### Building on Ubuntu (linux)
+
+Ensure `GOPATH` is set and the prerequisite libraries are installed,
+then setup the environment to use the libraries:
+
+```bash
+export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig/
+```
+(Optional: Add the above to `~/.bashrc` or `~/.bash_profile` to persist between sessions)
+
+Fetch the go packages:
+
+```bash
+go get -d github.com/op/go-logging
+go get -d github.com/libgit2/git2go
+```
+
+And setup git2go's libgit2 submodule as per their documentation:
+
+```bash
+cd $GOPATH/src/github.com/libgit2/git2go
+git submodule update --init
+make install-static
+```
+
+Finally, build `go-build` using the supplied makefile:
+
+```bash
+make build
+make pack # Optional: Pack the binary using UPX
+```
+
+### Building on Windows (win32)
+
+Building `go-build` on Windows has not yet been attempted, if you have successfully compiled `libssh2`, `libgit2` and `go-build` to run natively under win32 please feel free to document it here and [open a PR](https://github.com/Danw33/go-build/pulls).
 
 ## License
 
-The Multi-Project Build Tool is released under the MIT License
+[`go-build`](https://github.com/Danw33/go-build) is released under the MIT License
 
 Copyright © 2017 - 2018 Daniel Wilson
 
