@@ -1,4 +1,4 @@
-image: golang:latest
+image: golang:alpine
 cache:
   untracked: true
   key: "$CI_BUILD_REF_NAME"
