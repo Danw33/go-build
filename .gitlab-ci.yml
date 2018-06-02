@@ -6,6 +6,8 @@ stages:
   - build
 build:
   stage: build
+  before_script:
+    - apt-get install -q -y make cmake openssl-dev libssh2 libgit2
   script:
     - make dependencies
     - make build
