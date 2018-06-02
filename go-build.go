@@ -68,6 +68,11 @@ type scriptVariables struct {
 	Artifacts string
 }
 
+var (
+	Version   = "dev-unstable"
+	BuildTime = "unspecified"
+)
+
 var log = logging.MustGetLogger("example")
 
 var format = logging.MustStringFormatter(
@@ -94,8 +99,14 @@ func main() {
 		}
 	}
 
-	log.Info("go-build: Danw33's Multi-Project Build Utility")
-	log.Infof("Running on OS: \"%s\", Architecture: \"%s\"\n", runtime.GOOS, runtime.GOARCH)
+	log.Info("\n",
+		"go-build: Danw33's Multi-Project Build Utility\n",
+		"          Copyright © Daniel Wilson, MIT License\n",
+		"          https://github.com/Danw33/go-build\n",
+		"          Version    : ", Version, "\n",
+		"          Build Time : ", BuildTime, "\n",
+		"          Host OS    : ", runtime.GOOS, "\n",
+		"          Host Arch  : ", runtime.GOARCH, "\n")
 
 	log.Debug("Finding working directory...")
 

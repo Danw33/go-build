@@ -1,6 +1,8 @@
 BINARY=go-build
-VERSION=go-build-dev-$(shell date +'%Y.%m.%d-%H:%M:%S')
-LDFLAGS=-ldflags="-X main.Version=${VERSION} -s -w"
+BUILDTIME=$(shell date +'%Y.%m.%d-%H:%M:%S')
+VERSION=go-build-$(shell git describe --always --long --dirty)
+GOFLAGS=-a -v
+LDFLAGS=-ldflags="-X main.Version=${VERSION} main.BuildTime=${BUILDTIME} -s -w"
 TRIMPATH=-trimpath="$(shell pwd)"
 GCFLAGS=-gcflags=${TRIMPATH}
 ASMFLAGS=-asmflags=${TRIMPATH}
@@ -11,10 +13,10 @@ dependencies:
 	./build-dependencies.sh
 
 build:
-	go build -a -v ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY}
+	go build ${GOFLAGS} ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY}
 
 build-static:
-	go build -a -v --tags static  ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY}
+	go build ${GOFLAGS} --tags static  ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY}
 
 pack:
 	upx -9 ${BINARY}
