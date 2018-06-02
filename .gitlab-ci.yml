@@ -8,7 +8,7 @@ build:
   stage: build
   before_script:
     - apt-get update -q > /dev/null 2>&1 || echo " ! failed to update package lists"
-    - apt-get install -q -y make cmake openssl-dev libssh2 libgit2
+    - apt-get install -q -y git go upx make cmake openssl-dev libssh2 libgit2
   script:
     - make dependencies
     - make build
