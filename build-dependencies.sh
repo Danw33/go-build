@@ -21,7 +21,7 @@ cd $vendor
 git clone git://git.libssh.org/projects/libssh.git --depth 1
 mkdir build-libssh ; cd build-libssh
 cmake ../libssh/
-#make install
+cmake --build . --target install
 
 export CMAKE_PREFIX_PATH="$vendor/build-libssh/lib;$CMAKE_PREFIX_PATH"
 export PKG_CONFIG_PATH="$vendor/build-libssh/lib/pkgconfig:$PKG_CONFIG_PATH"
@@ -38,8 +38,7 @@ cmake \
   -DCMAKE_C_FLAGS=-fPIC \
   -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
   ../libgit2/ &&
-cmake --build .
-#make install
+cmake --build . --target install
 
 export CMAKE_PREFIX_PATH="$vendor/build-libgit2/lib;$CMAKE_PREFIX_PATH"
 export PKG_CONFIG_PATH="$vendor/build-libgit2/lib/pkgconfig:$PKG_CONFIG_PATH"
