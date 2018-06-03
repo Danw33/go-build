@@ -38,7 +38,7 @@ cmake \
   -DCMAKE_C_FLAGS=-fPIC \
   -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
   ../libgit2/ &&
-cmake --build . --target install
+# cmake --build . --target install
 
 export CMAKE_PREFIX_PATH="$vendor/build-libgit2/lib;$CMAKE_PREFIX_PATH"
 export PKG_CONFIG_PATH="$vendor/build-libgit2/lib/pkgconfig:$PKG_CONFIG_PATH"
