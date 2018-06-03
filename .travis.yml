@@ -8,10 +8,30 @@ addons:
   apt:
     update: true
     packages:
+      - gcc
+      - musl-dev
+      - libc-dev
+      - g++
+      - alpine-sdk
+      - bash
+      - git
+      - go
+      - upx
+      - make
+      - cmake
+      - python3
+      - openssl-dev
       - curl
-      - libssl-dev
+      - libcurl
+      - curl-dev
+      - libgcrypt
+      - libgcrypt-dev
+      - libssh
       - libssh-dev
-      - libgit2-dev
+      - libssh2
+      - libssh2-dev
+#      - libgit2
+#      - libgit2-dev
 
 git:
   depth: 3
