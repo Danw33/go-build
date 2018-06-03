@@ -1,40 +1,10 @@
-language: go
+sudo: required
 
-go:
-  - "1.10.x"
-  - master
-
-addons:
-  apt:
-    update: true
-    packages:
-      - gcc
-      - musl-dev
-      - libc-dev
-      - g++
-      - alpine-sdk
-      - bash
-      - git
-      - go
-      - upx
-      - make
-      - cmake
-      - python3
-      - openssl-dev
-      - curl
-      - libcurl
-      - curl-dev
-      - libgcrypt
-      - libgcrypt-dev
-      - libssh
-      - libssh-dev
-      - libssh2
-      - libssh2-dev
-#      - libgit2
-#      - libgit2-dev
+services:
+  - docker
 
 git:
   depth: 3
 
-before_install:
-  - make dependencies
+script:
+  - docker build -t go-build .
