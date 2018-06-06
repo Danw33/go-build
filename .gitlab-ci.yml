@@ -12,6 +12,7 @@ build:
 #    - apk add libgit2 libgit2-dev
   script:
     - . ./build-dependencies.sh && make build
+    - make pack
   cache:
     paths:
       - vendor/
