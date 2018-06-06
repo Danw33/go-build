@@ -1,4 +1,6 @@
-BINARY=go-build
+GOOS=$(shell go env GOOS)
+GOARCH=$(shell go env GOARCH)
+BINARY=go-build-${GOOS}-${GOARCH}
 BUILDTIME=$(shell date +'%Y.%m.%d-%H:%M:%S')
 VERSION=go-build-$(shell git describe --always --long --dirty)
 GOFLAGS=-a -v
