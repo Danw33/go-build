@@ -14,7 +14,7 @@ build:
     - . ./build-dependencies.sh && make build
   cache:
     paths:
-      - sources/
+      - vendor/
   artifacts:
     paths:
       - go-build
