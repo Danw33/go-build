@@ -1,4 +1,4 @@
-# go-build: Multi-Project Build Utility [![Build Status](https://travis-ci.org/Danw33/go-build.svg?branch=master)](https://travis-ci.org/Danw33/go-build)
+# go-build: Multi-Project Build Utility [![Travis CI Build Status](https://travis-ci.org/Danw33/go-build.svg?branch=master)](https://travis-ci.org/Danw33/go-build) [![GitLab CI Pipeline Status](https://gitlab.com/danw33/go-build/badges/master/pipeline.svg)](https://gitlab.com/danw33/go-build/commits/master)
 
 go-build is a multi-project, multi-branch build tool that can compile multiple branches of multiple projects to give per-branch and per-project artifacts.
 
@@ -42,7 +42,16 @@ The following flags can be passed to `go-build` at runtime:
 `go-build` utilises the [git2go](https://github.com/libgit2/git2go) bindings of `libgit2`, which require that libgit2 is
 installed. In order to use SSH-based project urls, `libssh2` and `libssl` are also required.
 
+## Releases
+
+Please see [Releases](https://github.com/Danw33/go-build/releases) for tagged releases, including pre-compiled binaries and source zips.
+
 ## Building
+
+Automated builds are done by [Travis CI](https://travis-ci.org/Danw33/go-build) and [GitLab CI](https://gitlab.com/danw33/go-build/pipelines).
+
+ - Travis: [![Travis CI Build Status](https://travis-ci.org/Danw33/go-build.svg?branch=master)](https://travis-ci.org/Danw33/go-build)
+ - GitLab: [![GitLab CI Pipeline Status](https://gitlab.com/danw33/go-build/badges/master/pipeline.svg)](https://gitlab.com/danw33/go-build/commits/master)
 
 ### Building on macOS (darwin)
 
