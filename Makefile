@@ -2,7 +2,7 @@ BINARY=go-build
 BUILDTIME=$(shell date +'%Y.%m.%d-%H:%M:%S')
 VERSION=go-build-$(shell git describe --always --long --dirty)
 GOFLAGS=-a -v
-LDFLAGS=-ldflags="-X main.Version=${VERSION} main.BuildTime=${BUILDTIME} -s -w"
+LDFLAGS=-ldflags="-X "main.Version=${VERSION}" -X "main.BuildTime=${BUILDTIME}" -s -w"
 TRIMPATH=-trimpath="$(shell pwd)"
 GCFLAGS=-gcflags=${TRIMPATH}
 ASMFLAGS=-asmflags=${TRIMPATH}
