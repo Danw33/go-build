@@ -255,14 +255,14 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 	if fresh != true {
 		// This isn't a fresh clone, but an existing repo. Fetch changes...
 		log.Debugf(" [%s] - fetching changes from remote...\n", proj.Path)
-		err = fetchChanges(repo, proj.URL)
+		err = fetchChanges(repo, proj.URL, proj.Path)
 		if err != nil {
 			log.Errorf(" [%s] - failed to fetch changes from remote:\n", proj.Path)
 			log.Critical(err)
 		}
 
 		log.Debugf(" [%s] - pulling changes from remote...\n", proj.Path)
-		err = pullChanges(repo)
+		err = pullChanges(repo, proj.Path)
 		if err != nil {
 			log.Errorf(" [%s] - failed to pull changes from remote:\n", proj.Path)
 			log.Critical(err)
@@ -307,6 +307,13 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 		if err != nil {
 			log.Critical(err)
 			panic(err)
+		}
+
+		log.Infof(" [%s] - pulling changes from remote for branch %s...\n", proj.Path, branchName)
+		err = pullChanges(repo, proj.Path)
+		if err != nil {
+			log.Errorf(" [%s] - failed to pull changes from remote for branch %s:\n", proj.Path, branchName)
+			log.Critical(err)
 		}
 
 		log.Infof(" [%s] - on branch \"%s\", processing...\n", proj.Path, branchName)
@@ -479,13 +486,13 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 	return repo, nil
 }
 
-func fetchChanges(repo *git.Repository, fallbackUrl string) error {
+func fetchChanges(repo *git.Repository, fallbackUrl string, project string) error {
 
-	log.Debug("Looking up remote \"origin\"...")
+	log.Debugf(" [%s] - Looking up remote \"origin\"...", project)
 
 	remote, err := repo.Remotes.Lookup("origin")
 	if err != nil {
-		log.Debug("Remote \"origin\" does not exist, setting it to the configured project URL...")
+		log.Debugf(" [%s] - Remote \"origin\" does not exist, setting it to the configured project URL...", project)
 		remote, err = repo.Remotes.Create("origin", fallbackUrl)
 		if err != nil {
 			return err
@@ -501,12 +508,7 @@ func fetchChanges(repo *git.Repository, fallbackUrl string) error {
 		UpdateFetchhead: true,
 	}
 
-	//err = remote.SetCallbacks(cbs)
-	//if err != nil {
-	//	return err
-	//}
-
-	log.Debug("Fetching changes from remote \"origin\"...")
+	log.Debugf(" [%s] - Fetching changes from remote \"origin\"...", project)
 	err = remote.Fetch([]string{}, fopts, "")
 	if err != nil {
 		return err
@@ -515,7 +517,7 @@ func fetchChanges(repo *git.Repository, fallbackUrl string) error {
 	return nil
 }
 
-func pullChanges(repo *git.Repository) error {
+func pullChanges(repo *git.Repository, project string) error {
 
 	head, headErr := repo.Head()
 	if headErr != nil {
@@ -627,7 +629,7 @@ func pullChanges(repo *git.Repository) error {
 		}
 
 	} else {
-		log.Errorf("Unexpected merge analysis result %d", analysis)
+		log.Errorf(" [%s] - Unexpected merge analysis result %d", project, analysis)
 		return errors.New("Unexpected merge analysis result")
 	}
 
