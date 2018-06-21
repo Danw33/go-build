@@ -201,6 +201,7 @@ func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
 func processRepo(config *configuration, proj project, cloneOpts *git.CloneOptions) {
 	var repo *git.Repository
 	var twd string
+	fresh := false
 
 	pStart := time.Now()
 
@@ -216,6 +217,7 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 			log.Critical(err)
 			panic(err)
 		}
+		fresh = true
 	}
 
 	if _, err := os.Stat(twd); err == nil {
@@ -248,6 +250,23 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 		log.Debugf(" [%s] - bare repository loaded and configured\n", proj.Path)
 	} else {
 		log.Debugf(" [%s] - repository loaded and configured\n", proj.Path)
+	}
+
+	if fresh != true {
+		// This isn't a fresh clone, but an existing repo. Fetch changes...
+		log.Debugf(" [%s] - fetching changes from remote...\n", proj.Path)
+		err = fetchChanges(repo, proj.URL)
+		if err != nil {
+			log.Errorf(" [%s] - failed to fetch changes from remote:\n", proj.Path)
+			log.Critical(err)
+		}
+
+		log.Debugf(" [%s] - pulling changes from remote...\n", proj.Path)
+		err = pullChanges(repo)
+		if err != nil {
+			log.Errorf(" [%s] - failed to pull changes from remote:\n", proj.Path)
+			log.Critical(err)
+		}
 	}
 
 	log.Debugf(" [%s] - loading object database\n", proj.Path)
@@ -458,6 +477,161 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 	log.Debugf(" [%s] - head is now at %v\n", path, head.Target())
 
 	return repo, nil
+}
+
+func fetchChanges(repo *git.Repository, fallbackUrl string) error {
+
+	log.Debug("Looking up remote \"origin\"...")
+
+	remote, err := repo.Remotes.Lookup("origin")
+	if err != nil {
+		log.Debug("Remote \"origin\" does not exist, setting it to the configured project URL...")
+		remote, err = repo.Remotes.Create("origin", fallbackUrl)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Fetch Options + Callbacks
+	fopts := &git.FetchOptions{
+		RemoteCallbacks: git.RemoteCallbacks{
+			CredentialsCallback:      credentialsCallback,
+			CertificateCheckCallback: certificateCheckCallback,
+		},
+		UpdateFetchhead: true,
+	}
+
+	//err = remote.SetCallbacks(cbs)
+	//if err != nil {
+	//	return err
+	//}
+
+	log.Debug("Fetching changes from remote \"origin\"...")
+	err = remote.Fetch([]string{}, fopts, "")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func pullChanges(repo *git.Repository) error {
+
+	head, headErr := repo.Head()
+	if headErr != nil {
+		return nil
+	}
+
+	if head == nil {
+		return errors.New("Failed to find current HEAD")
+	}
+
+	// Find the branch name
+	branch := ""
+	branchElements := strings.Split(head.Name(), "/")
+	if len(branchElements) == 3 {
+		branch = branchElements[2]
+	}
+
+	// Get remote ref for current branch
+	remoteBranch, err := repo.References.Lookup("refs/remotes/origin/" + branch)
+	if err != nil {
+		return err
+	}
+
+	remoteBranchID := remoteBranch.Target()
+	// Get annotated commit
+	annotatedCommit, err := repo.AnnotatedCommitFromRef(remoteBranch)
+	if err != nil {
+		return err
+	}
+
+	// Do the merge analysis
+	mergeHeads := make([]*git.AnnotatedCommit, 1)
+	mergeHeads[0] = annotatedCommit
+	analysis, _, err := repo.MergeAnalysis(mergeHeads)
+	if err != nil {
+		return err
+	}
+
+	if analysis&git.MergeAnalysisUpToDate != 0 {
+		return nil
+	} else if analysis&git.MergeAnalysisNormal != 0 {
+		// Just merge changes
+		if err := repo.Merge([]*git.AnnotatedCommit{annotatedCommit}, nil, nil); err != nil {
+			return err
+		}
+		// Check for conflicts
+		index, err := repo.Index()
+		if err != nil {
+			return err
+		}
+
+		if index.HasConflicts() {
+			return errors.New("Conflicts encountered. Please resolve them.")
+		}
+
+		// Make the merge commit
+		sig, err := repo.DefaultSignature()
+		if err != nil {
+			return err
+		}
+
+		// Get Write Tree
+		treeId, err := index.WriteTree()
+		if err != nil {
+			return err
+		}
+
+		tree, err := repo.LookupTree(treeId)
+		if err != nil {
+			return err
+		}
+
+		localCommit, err := repo.LookupCommit(head.Target())
+		if err != nil {
+			return err
+		}
+
+		remoteCommit, err := repo.LookupCommit(remoteBranchID)
+		if err != nil {
+			return err
+		}
+
+		repo.CreateCommit("HEAD", sig, sig, "", tree, localCommit, remoteCommit)
+
+		// Clean up
+		repo.StateCleanup()
+	} else if analysis&git.MergeAnalysisFastForward != 0 {
+		// Fast-forward changes
+		// Get remote tree
+		remoteTree, err := repo.LookupTree(remoteBranchID)
+		if err != nil {
+			return err
+		}
+
+		// Checkout
+		if err := repo.CheckoutTree(remoteTree, nil); err != nil {
+			return err
+		}
+
+		branchRef, err := repo.References.Lookup("refs/heads/" + branch)
+		if err != nil {
+			return err
+		}
+
+		// Point branch to the object
+		branchRef.SetTarget(remoteBranchID, "")
+		if _, err := head.SetTarget(remoteBranchID, ""); err != nil {
+			return err
+		}
+
+	} else {
+		log.Errorf("Unexpected merge analysis result %d", analysis)
+		return errors.New("Unexpected merge analysis result")
+	}
+
+	return nil
 }
 
 func checkoutBranch(repo *git.Repository, branchName string) error {
