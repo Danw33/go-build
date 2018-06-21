@@ -20,6 +20,9 @@ build:
 build-static:
 	go build ${GOFLAGS} --tags static  ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY}
 
+build-docker:
+	docker build -t ${VERSION} .
+
 pack:
 	upx -9 ${BINARY}
 
