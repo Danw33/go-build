@@ -316,7 +316,16 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 			log.Critical(err)
 		}
 
-		log.Infof(" [%s] - on branch \"%s\", processing...\n", proj.Path, branchName)
+		description, err := describeWorkDir(repo, proj.Path)
+		if err != nil {
+			log.Errorf(" [%s] - failed to describe working directory state post-checkout for branch %s:\n", proj.Path, branchName)
+			log.Error(err)
+		}
+		if description != "" {
+			log.Infof(" [%s] - on branch \"%s\", working directory is %s\n", proj.Path, branchName, description)
+		}
+
+		log.Infof(" [%s] - processing branch \"%s\"...\n", proj.Path, branchName)
 		processBranch(config, proj, twd, branchName)
 		log.Infof(" [%s] - completed branch \"%s\" in: %s\n", proj.Path, branchName, time.Since(bStart))
 	}
@@ -704,4 +713,32 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Setting the Head to point to our branch
 	repo.SetHead("refs/heads/" + branchName)
 	return nil
+}
+
+func describeWorkDir(repo *git.Repository, project string) (string, error) {
+	describeOpts, err := git.DefaultDescribeOptions()
+	if err != nil {
+		log.Error("Failed to load git describe options for project " + project)
+		return "", err
+	}
+
+	formatOpts, err := git.DefaultDescribeFormatOptions()
+	if err != nil {
+		log.Error("Failed to load git describe format options for project " + project)
+		return "", err
+	}
+
+	result, err := repo.DescribeWorkdir(&describeOpts)
+	if err != nil {
+		log.Error("Failed to describe working directory for project " + project)
+		return "", err
+	}
+
+	resultStr, err := result.Format(&formatOpts)
+	if err != nil {
+		log.Error("Failed to format working directory description for project " + project)
+		return "", err
+	}
+
+	return resultStr, nil
 }
