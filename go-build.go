@@ -32,6 +32,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"fmt"
 	"runtime"
 	"strings"
 	"sync"
@@ -69,7 +70,7 @@ type scriptVariables struct {
 }
 
 var (
-	Version   = "dev-unstable"
+	Version   = "go-build-dev-unstable"
 	BuildTime = "unspecified"
 )
 
@@ -104,6 +105,11 @@ func main() {
 		}
 	}
 
+	if versionOnly {
+		fmt.Println(Version)
+		os.Exit(0)
+	}
+
 	log.Info("\n",
 		"go-build: Danw33's Multi-Project Build Utility\n",
 		"          Copyright © Daniel Wilson, MIT License\n",
@@ -112,10 +118,6 @@ func main() {
 		"          Build Time : ", BuildTime, "\n",
 		"          Host OS    : ", runtime.GOOS, "\n",
 		"          Host Arch  : ", runtime.GOARCH, "\n")
-
-	if versionOnly {
-		os.Exit(0)
-	}
 
 	log.Debug("Finding working directory...")
 
