@@ -92,10 +92,15 @@ func main() {
 
 	// Check for verbose flag, if it's present, up the level to DEBUG
 	verbose := false
+	versionOnly := false;
 	for _, arg := range os.Args {
-		if arg == "-v" {
+		if arg == "-v" || arg == "--verbose" {
 			verbose = true
 			logging.SetLevel(logging.DEBUG, "")
+		}
+
+		if arg == "--version" {
+			versionOnly = true
 		}
 	}
 
@@ -107,6 +112,10 @@ func main() {
 		"          Build Time : ", BuildTime, "\n",
 		"          Host OS    : ", runtime.GOOS, "\n",
 		"          Host Arch  : ", runtime.GOARCH, "\n")
+
+	if versionOnly {
+		os.Exit(0)
+	}
 
 	log.Debug("Finding working directory...")
 
