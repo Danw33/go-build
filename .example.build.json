@@ -4,6 +4,10 @@
   "log": {
     "level": "info"
   },
+  "plugins": [
+    "go-build-plugin-one.so",
+    "go-build-plugin-two.so"
+  ],
   "projects": [{
     "url": "git+ssh://git@github.com/You/your-project.git",
     "path": "your-project",

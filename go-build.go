@@ -29,10 +29,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"fmt"
+	"plugin"
 	"runtime"
 	"strings"
 	"sync"
@@ -47,6 +48,7 @@ type configuration struct {
 	Home     string    `json:"home"`
 	Async    bool      `json:"async"`
 	Log      logger    `json:"log"`
+	Plugins  []string  `json:"plugins"`
 	Projects []project `json:"projects"`
 }
 
@@ -58,6 +60,7 @@ type project struct {
 	URL       string   `json:"url"`
 	Path      string   `json:"path"`
 	Artifacts string   `json:"artifacts"`
+	Plugins   []string `json:"plugins"`
 	Branches  []string `json:"branches"`
 	Scripts   []string `json:"scripts"`
 }
@@ -69,8 +72,44 @@ type scriptVariables struct {
 	Artifacts string
 }
 
+// BuildPlugin is an interface for go-build plugins
+type BuildPlugin interface {
+	// pluginInit 0. Plugin Initialiser, called on load of plugin file
+	pluginInit(*logging.Logger, configuration, string) error
+
+	// postLoadPlugins 1. First hook, after plugins are loaded
+	postLoadPlugins([]*plugin.Plugin, configuration)
+
+	// preProcessProjects 2. Before processing all projects
+	preProcessProjects()
+
+	// postProcessProjects 9. After processing all projects
+	postProcessProjects()
+
+	// preProcessProject 3. Before processing an individual project
+	preProcessProject()
+
+	// postProcessProject 8. After processing an individual project
+	postProcessProject()
+
+	// preProcessBranch 4. Before processing a branch within a project
+	preProcessBranch()
+
+	// postProcessBranch 7. After processing a branch within a project
+	postProcessBranch()
+
+	// preProcessArtifacts 5. Before processing the build artifacts of a branch
+	preProcessArtifacts()
+
+	// postProcessArtifacts 6. After processing the build artifacts of a branch
+	postProcessArtifacts()
+}
+
 var (
-	Version   = "go-build-dev-unstable"
+	// Version string for the build, added by make (see the makefile)
+	Version = "go-build-dev-unstable"
+
+	// BuildTime of the build, added by make (see the makefile)
 	BuildTime = "unspecified"
 )
 
@@ -81,6 +120,9 @@ var format = logging.MustStringFormatter(
 )
 
 var pwd string
+
+var loadedPlugins []*plugin.Plugin
+var buildPlugins []BuildPlugin
 
 func main() {
 	start := time.Now()
@@ -93,7 +135,7 @@ func main() {
 
 	// Check for verbose flag, if it's present, up the level to DEBUG
 	verbose := false
-	versionOnly := false;
+	versionOnly := false
 	for _, arg := range os.Args {
 		if arg == "-v" || arg == "--verbose" {
 			verbose = true
@@ -155,12 +197,42 @@ func main() {
 
 	log.Infof("Configuration Loaded.")
 
+	log.Infof("Loading Plugins...")
+	loadPlugins(config)
+
 	cloneOpts := configureCloneOpts()
 
 	log.Debug("Starting Project Processor...")
 	processProjects(config, cloneOpts)
 
 	log.Infof("All projects completed in: %s", time.Since(start))
+}
+
+func loadPlugins(config *configuration) {
+	// Load in plugin files
+	for _, pFile := range config.Plugins {
+		if plug, err := plugin.Open(pFile); err == nil {
+			loadedPlugins = append(loadedPlugins, plug)
+		} else {
+			log.Criticalf("Failed to load plugin \"%s\"", pFile)
+			log.Critical(err)
+		}
+	}
+
+	// Locate buildPlugin symbols and test
+	for _, p := range loadedPlugins {
+		symPlug, err := p.Lookup("BuildPlugin")
+		if err != nil {
+			log.Errorf("Plugin exports no BuildPlugin symbol: %v", err)
+			continue
+		}
+		bp, ok := symPlug.(BuildPlugin)
+		if !ok {
+			log.Errorf("Build Plugin is not an BuildPlugin interface type")
+			continue
+		}
+		buildPlugins = append(buildPlugins, bp)
+	}
 }
 
 func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
@@ -506,14 +578,14 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 	return repo, nil
 }
 
-func fetchChanges(repo *git.Repository, fallbackUrl string, project string) error {
+func fetchChanges(repo *git.Repository, fallbackURL string, project string) error {
 
 	log.Debugf(" [%s] - Looking up remote \"origin\"...", project)
 
 	remote, err := repo.Remotes.Lookup("origin")
 	if err != nil {
 		log.Debugf(" [%s] - Remote \"origin\" does not exist, setting it to the configured project URL...", project)
-		remote, err = repo.Remotes.Create("origin", fallbackUrl)
+		remote, err = repo.Remotes.Create("origin", fallbackURL)
 		if err != nil {
 			return err
 		}
@@ -590,7 +662,7 @@ func pullChanges(repo *git.Repository, project string) error {
 		}
 
 		if index.HasConflicts() {
-			return errors.New("Conflicts encountered. Please resolve them.")
+			return errors.New("Conflicts encountered. Please resolve them")
 		}
 
 		// Make the merge commit
@@ -600,12 +672,12 @@ func pullChanges(repo *git.Repository, project string) error {
 		}
 
 		// Get Write Tree
-		treeId, err := index.WriteTree()
+		treeID, err := index.WriteTree()
 		if err != nil {
 			return err
 		}
 
-		tree, err := repo.LookupTree(treeId)
+		tree, err := repo.LookupTree(treeID)
 		if err != nil {
 			return err
 		}
@@ -633,8 +705,8 @@ func pullChanges(repo *git.Repository, project string) error {
 		}
 
 		// Checkout
-		if err := repo.CheckoutTree(remoteTree, nil); err != nil {
-			return err
+		if coErr := repo.CheckoutTree(remoteTree, nil); coErr != nil {
+			return coErr
 		}
 
 		branchRef, err := repo.References.Lookup("refs/heads/" + branch)
