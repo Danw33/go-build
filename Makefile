@@ -20,6 +20,9 @@ build:
 build-static:
 	go build ${GOFLAGS} --tags static  ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY} ./src
 
+build-debug:
+	GOCACHE=off go build -x -tags nopkcs11 -ldflags='-X "main.Version=${VERSION}-dbg" -X "main.BuildTime=${BUILDTIME}"' -gcflags='all=-N -l -dwarflocationlists=true' -o ${BINARY}-dbg ./src
+
 build-docker:
 	docker build -t ${VERSION} .
 
