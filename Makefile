@@ -3,7 +3,7 @@ GOARCH=$(shell go env GOARCH)
 BINARY=go-build-${GOOS}-${GOARCH}
 BUILDTIME=$(shell date +'%Y.%m.%d-%H:%M:%S')
 VERSION=go-build-$(shell git describe --always --long --dirty)
-GOFLAGS=-a -v
+GOFLAGS=-v
 LDFLAGS=-ldflags="-X "main.Version=${VERSION}" -X "main.BuildTime=${BUILDTIME}" -s -w"
 TRIMPATH=-trimpath="$(shell pwd)"
 GCFLAGS=-gcflags=${TRIMPATH}
@@ -22,6 +22,9 @@ build-static:
 
 build-debug:
 	GOCACHE=off go build -x -tags nopkcs11 -ldflags='-X "main.Version=${VERSION}-dbg" -X "main.BuildTime=${BUILDTIME}"' -gcflags='all=-N -l -dwarflocationlists=true' -o ${BINARY}-dbg ./src
+
+build-plugins:
+	go build ${GOFLAGS} -buildmode=plugin ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} ./plugins/*.go
 
 build-docker:
 	docker build -t ${VERSION} .
