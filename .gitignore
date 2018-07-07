@@ -2,5 +2,6 @@
 /projects/
 /.build.json
 /.gtm/
+/.idea/
 /vendor/
 /go-build
