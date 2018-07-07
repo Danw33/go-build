@@ -4,5 +4,5 @@ RUN apk add --no-cache gcc musl-dev libc-dev g++ alpine-sdk bash git go upx make
 COPY . /go-build
 WORKDIR /go-build
 RUN ls -R
-RUN . ./build-dependencies.sh && make build
+RUN . ./build-dependencies.sh && make build && make build-plugins
 RUN make pack
