@@ -15,10 +15,10 @@ dependencies:
 	./build-dependencies.sh
 
 build:
-	go build ${GOFLAGS} ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY}
+	go build ${GOFLAGS} ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY} ./src
 
 build-static:
-	go build ${GOFLAGS} --tags static  ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY}
+	go build ${GOFLAGS} --tags static  ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BINARY} ./src
 
 build-docker:
 	docker build -t ${VERSION} .
@@ -27,10 +27,10 @@ pack:
 	upx -9 ${BINARY}
 
 install:
-	go install ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS}
+	go install ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} ./src
 
 install-static:
-	go install --tags static ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS}
+	go install --tags static ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} ./src
 
 clean:
 	go clean
