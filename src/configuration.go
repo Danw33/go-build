@@ -30,19 +30,19 @@ import (
 	"encoding/json"
 )
 
-type configuration struct {
-	Home     string    `json:"home"`
-	Async    bool      `json:"async"`
-	Log      logger    `json:"log"`
-	Plugins  []string  `json:"plugins"`
-	Projects []project `json:"projects"`
+type Configuration struct {
+	Home     string          `json:"home"`
+	Async    bool            `json:"async"`
+	Log      LogConfig       `json:"log"`
+	Plugins  []string        `json:"plugins"`
+	Projects []ProjectConfig `json:"projects"`
 }
 
-type logger struct {
+type LogConfig struct {
 	Level string `json:"level"`
 }
 
-type project struct {
+type ProjectConfig struct {
 	URL       string   `json:"url"`
 	Path      string   `json:"path"`
 	Artifacts string   `json:"artifacts"`
@@ -51,8 +51,8 @@ type project struct {
 	Scripts   []string `json:"scripts"`
 }
 
-func parseConfig(cfg string) *configuration {
-	res := configuration{}
+func parseConfig(cfg string) *Configuration {
+	res := Configuration{}
 	log.Debug("Parsing Configuration using json.Unmarshal...\n")
 	json.Unmarshal([]byte(cfg), &res)
 	log.Debugf("Loaded Configuration: %d Projects Configured.\n", len(res.Projects))

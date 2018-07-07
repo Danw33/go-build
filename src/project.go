@@ -48,7 +48,7 @@ type scriptVariables struct {
 
 var pwd string
 
-func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
+func processProjects(config *Configuration, cloneOpts *git.CloneOptions) {
 
 	log.Debug("Configuring WaitGroup")
 	var w sync.WaitGroup
@@ -63,7 +63,7 @@ func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
 	for _, proj := range config.Projects {
 		if config.Async == true {
 			// Async enabled, use goroutines :-
-			go func(config *configuration, proj project, cloneOpts *git.CloneOptions) {
+			go func(config *Configuration, proj ProjectConfig, cloneOpts *git.CloneOptions) {
 				defer func() {
 					if r := recover(); r != nil {
 						if _, ok := r.(runtime.Error); ok {
@@ -94,7 +94,7 @@ func processProjects(config *configuration, cloneOpts *git.CloneOptions) {
 	log.Info("Finished processing all configured projects.")
 }
 
-func processRepo(config *configuration, proj project, cloneOpts *git.CloneOptions) {
+func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.CloneOptions) {
 	var repo *git.Repository
 	var twd string
 	fresh := false
@@ -229,7 +229,7 @@ func processRepo(config *configuration, proj project, cloneOpts *git.CloneOption
 	log.Infof(" [%s] - completed all configured branches in: %s\n", proj.Path, time.Since(pStart))
 }
 
-func processBranch(config *configuration, proj project, twd string, branchName string) {
+func processBranch(config *Configuration, proj ProjectConfig, twd string, branchName string) {
 
 	log.Debugf(" [%s] - running project scripts...\n", proj.Path)
 
@@ -254,7 +254,7 @@ func processBranch(config *configuration, proj project, twd string, branchName s
 
 }
 
-func runProjectScripts(dir string, branchName string, proj project) {
+func runProjectScripts(dir string, branchName string, proj ProjectConfig) {
 	log.Debugf(" [%s] - project has %d scripts configured\n", proj.Path, len(proj.Scripts))
 
 	for _, script := range proj.Scripts {

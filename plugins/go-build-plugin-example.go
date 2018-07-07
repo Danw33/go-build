@@ -7,10 +7,10 @@ import (
 type pluginName struct{}
 
 var log *logging.Logger
-var config configuration
+var config Configuration
 
 // pluginInit (0) is the Plugin Initialiser, called on load of plugin file
-func (t pluginName) pluginInit(logger *logging.Logger, configuration configuration, coreVersion string) {
+func (t pluginName) pluginInit(logger *logging.Logger, configuration Configuration, coreVersion string) {
 	log = logger
 	config = configuration
 	log.Debugf("pluginName: loaded and initialised, detected core version as %s", coreVersion)
@@ -43,5 +43,5 @@ func (t pluginName) preProcessArtifacts() {}
 // postProcessArtifacts (6) is run after processing the build artifacts of a branch
 func (t pluginName) postProcessArtifacts() {}
 
-// Export buildPluin symbol
+// Export BuildPlugin symbol
 var BuildPlugin pluginName

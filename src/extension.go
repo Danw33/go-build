@@ -34,10 +34,10 @@ import (
 // BuildPlugin is an interface for go-build plugins
 type BuildPlugin interface {
 	// pluginInit 0. Plugin Initialiser, called on load of plugin file
-	pluginInit(*logging.Logger, *configuration, string) error
+	pluginInit(*logging.Logger, *Configuration, string) error
 
 	// postLoadPlugins 1. First hook, after plugins are loaded
-	postLoadPlugins(*[]BuildPlugin, *configuration)
+	postLoadPlugins(*[]BuildPlugin, *Configuration)
 
 	// preProcessProjects 2. Before processing all projects
 	preProcessProjects()
@@ -67,7 +67,7 @@ type BuildPlugin interface {
 var loadedPlugins []*plugin.Plugin
 var buildPlugins []BuildPlugin
 
-func loadPlugins(config *configuration) {
+func loadPlugins(config *Configuration) {
 
 	// See if the config defines any plugins
 	if len(config.Plugins) == 0 {
