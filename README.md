@@ -15,6 +15,7 @@ location (URL and Path), branches, scrips, and artifacts.
   - `async` - `true` to run builds in parallel, `false` to run in sequence.
   - `log` - Logger Configuration
     - `level` -  Log level, one of: `critical` (lowest), `error`, `warning`, `notice`, `info` (default), or `debug` (highest).
+  - `plugins` - Array of plugin file names to extend go-build functionality (extensions)
   - `projects` - Array of project definitions, made up of:
     - `url` - Git URL for the Project
     - `path` - Path to use when cloning, and Publishing artifacts (Slugified name)
