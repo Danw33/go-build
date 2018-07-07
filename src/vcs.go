@@ -49,24 +49,24 @@ func configureCloneOpts() *git.CloneOptions {
 }
 
 func credentialsCallback(url string, username string, allowedTypes git.CredType) (git.ErrorCode, *git.Cred) {
-	log.Debugf(" [git] - running credentials callback with username \"%s\" for url \"%s\"\n", username, url)
+	Log.Debugf(" [git] - running credentials callback with username \"%s\" for url \"%s\"\n", username, url)
 	ret, cred := git.NewCredSshKeyFromAgent(username)
 	return git.ErrorCode(ret), &cred
 }
 
 func certificateCheckCallback(cert *git.Certificate, valid bool, hostname string) git.ErrorCode {
-	log.Debugf(" [git] - running certificate check callback for hostname \"%s\"\n", hostname)
+	Log.Debugf(" [git] - running certificate check callback for hostname \"%s\"\n", hostname)
 	if hostname != "github.com" && hostname != "gitlab.com" {
-		log.Debugf(" [git] - certificate check callback passed for hostname \"%s\"\n", hostname)
+		Log.Debugf(" [git] - certificate check callback passed for hostname \"%s\"\n", hostname)
 		return git.ErrUser
 	}
-	log.Warningf(" [git] - certificate check callback passed for hostname \"%s\"\n", hostname)
+	Log.Warningf(" [git] - certificate check callback passed for hostname \"%s\"\n", hostname)
 	return 0
 }
 
 func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions) (*git.Repository, error) {
 
-	log.Debugf(" [%s] - cloning repository from \"%s\" into \"%s\"\n", path, url, twd)
+	Log.Debugf(" [%s] - cloning repository from \"%s\" into \"%s\"\n", path, url, twd)
 
 	// Clone
 	repo, err := git.Clone(url, twd, cloneOpts)
@@ -74,7 +74,7 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 		return nil, err
 	}
 
-	log.Debugf(" [%s] - clone completed, finding head ref\n", path)
+	Log.Debugf(" [%s] - clone completed, finding head ref\n", path)
 
 	// Get HEAD ref
 	head, err := repo.Head()
@@ -82,18 +82,18 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 		return nil, err
 	}
 
-	log.Debugf(" [%s] - head is now at %v\n", path, head.Target())
+	Log.Debugf(" [%s] - head is now at %v\n", path, head.Target())
 
 	return repo, nil
 }
 
 func fetchChanges(repo *git.Repository, fallbackURL string, project string) error {
 
-	log.Debugf(" [%s] - Looking up remote \"origin\"...", project)
+	Log.Debugf(" [%s] - Looking up remote \"origin\"...", project)
 
 	remote, err := repo.Remotes.Lookup("origin")
 	if err != nil {
-		log.Debugf(" [%s] - Remote \"origin\" does not exist, setting it to the configured project URL...", project)
+		Log.Debugf(" [%s] - Remote \"origin\" does not exist, setting it to the configured project URL...", project)
 		remote, err = repo.Remotes.Create("origin", fallbackURL)
 		if err != nil {
 			return err
@@ -109,7 +109,7 @@ func fetchChanges(repo *git.Repository, fallbackURL string, project string) erro
 		UpdateFetchhead: true,
 	}
 
-	log.Debugf(" [%s] - Fetching changes from remote \"origin\"...", project)
+	Log.Debugf(" [%s] - Fetching changes from remote \"origin\"...", project)
 	err = remote.Fetch([]string{}, fopts, "")
 	if err != nil {
 		return err
@@ -230,7 +230,7 @@ func pullChanges(repo *git.Repository, project string) error {
 		}
 
 	} else {
-		log.Errorf(" [%s] - Unexpected merge analysis result %d", project, analysis)
+		Log.Errorf(" [%s] - Unexpected merge analysis result %d", project, analysis)
 		return errors.New("Unexpected merge analysis result")
 	}
 
@@ -245,7 +245,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	//Getting the reference for the remote branch
 	remoteBranch, err := repo.LookupBranch("origin/"+branchName, git.BranchRemote)
 	if err != nil {
-		log.Error("Failed to find remote branch: " + branchName)
+		Log.Error("Failed to find remote branch: " + branchName)
 		return err
 	}
 	defer remoteBranch.Free()
@@ -253,7 +253,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Lookup for commit from remote branch
 	commit, err := repo.LookupCommit(remoteBranch.Target())
 	if err != nil {
-		log.Error("Failed to find remote branch commit: " + branchName)
+		Log.Error("Failed to find remote branch commit: " + branchName)
 		return err
 	}
 	defer commit.Free()
@@ -264,14 +264,14 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 		// Creating local branch
 		localBranch, err = repo.CreateBranch(branchName, commit, false)
 		if err != nil {
-			log.Error("Failed to create local branch: " + branchName)
+			Log.Error("Failed to create local branch: " + branchName)
 			return err
 		}
 
 		// Setting upstream to origin branch
 		err = localBranch.SetUpstream("origin/" + branchName)
 		if err != nil {
-			log.Error("Failed to create upstream to origin/" + branchName)
+			Log.Error("Failed to create upstream to origin/" + branchName)
 			return err
 		}
 	}
@@ -283,14 +283,14 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Getting the tree for the branch
 	localCommit, err := repo.LookupCommit(localBranch.Target())
 	if err != nil {
-		log.Error("Failed to lookup for commit in local branch " + branchName)
+		Log.Error("Failed to lookup for commit in local branch " + branchName)
 		return err
 	}
 	defer localCommit.Free()
 
 	tree, err := repo.LookupTree(localCommit.TreeId())
 	if err != nil {
-		log.Error("Failed to lookup for tree " + branchName)
+		Log.Error("Failed to lookup for tree " + branchName)
 		return err
 	}
 	defer tree.Free()
@@ -298,7 +298,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Checkout the tree
 	err = repo.CheckoutTree(tree, checkoutOpts)
 	if err != nil {
-		log.Error("Failed to checkout tree " + branchName)
+		Log.Error("Failed to checkout tree " + branchName)
 		return err
 	}
 
@@ -310,25 +310,25 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 func describeWorkDir(repo *git.Repository, project string) (string, error) {
 	describeOpts, err := git.DefaultDescribeOptions()
 	if err != nil {
-		log.Error("Failed to load git describe options for project " + project)
+		Log.Error("Failed to load git describe options for project " + project)
 		return "", err
 	}
 
 	formatOpts, err := git.DefaultDescribeFormatOptions()
 	if err != nil {
-		log.Error("Failed to load git describe format options for project " + project)
+		Log.Error("Failed to load git describe format options for project " + project)
 		return "", err
 	}
 
 	result, err := repo.DescribeWorkdir(&describeOpts)
 	if err != nil {
-		log.Error("Failed to describe working directory for project " + project)
+		Log.Error("Failed to describe working directory for project " + project)
 		return "", err
 	}
 
 	resultStr, err := result.Format(&formatOpts)
 	if err != nil {
-		log.Error("Failed to format working directory description for project " + project)
+		Log.Error("Failed to format working directory description for project " + project)
 		return "", err
 	}
 

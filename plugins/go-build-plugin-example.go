@@ -1,47 +1,62 @@
+// go-build-plugin-example
 package main
 
 import (
-	"github.com/op/go-logging"
+	"fmt"
 )
 
-type pluginName struct{}
-
-var log *logging.Logger
-var config Configuration
+type BuildPluginImpl struct{}
 
 // pluginInit (0) is the Plugin Initialiser, called on load of plugin file
-func (t pluginName) pluginInit(logger *logging.Logger, configuration Configuration, coreVersion string) {
-	log = logger
-	config = configuration
-	log.Debugf("pluginName: loaded and initialised, detected core version as %s", coreVersion)
+func (b BuildPluginImpl) PluginInit() error {
+	fmt.Println("Yo, EX-to-the-A to-the-M to-the-PLE.")
+	fmt.Println("Yeah that's right; I'm the example plugin.")
+	return nil
 }
 
 // postLoadPlugins (1) is the first fully-loaded hook, after all plugins are loaded
-func (t pluginName) postLoadPlugins() {}
+func (b BuildPluginImpl) PostLoadPlugins() {
+	fmt.Println("Example Plugin: PostLoadPlugins - All plugins have loaded")
+}
 
 // preProcessProjects (2) is run before processing all projects
-func (t pluginName) preProcessProjects() {}
+func (b BuildPluginImpl) PreProcessProjects() {
+	fmt.Println("Example Plugin: PreProcessProjects - Just about to start processing the projects")
+}
 
 // postProcessProjects (9) is run after processing all projects
-func (t pluginName) postProcessProjects() {}
+func (b BuildPluginImpl) PostProcessProjects() {
+	fmt.Println("Example Plugin: PreProcessProjects - Just finished processing the projects")
+}
 
 // preProcessProject (3) is run before processing an individual project
-func (t pluginName) preProcessProject() {}
+func (b BuildPluginImpl) PreProcessProject() {
+	fmt.Println("Example Plugin: PreProcessProjects - Just about to start processing an individual project")
+}
 
 // postProcessProject (8) is run after processing an individual project
-func (t pluginName) postProcessProject() {}
+func (b BuildPluginImpl) PostProcessProject() {
+	fmt.Println("Example Plugin: PostProcessProject - Just finished processing an individual project")
+}
 
 // preProcessBranch (4) is run before processing a branch within a project
-func (t pluginName) preProcessBranch() {}
+func (b BuildPluginImpl) PreProcessBranch() {
+	fmt.Println("Example Plugin: PreProcessBranch - Just about to start processing a branch of an individual project")
+}
 
 // postProcessBranch (7) is run after processing a branch within a project
-func (t pluginName) postProcessBranch() {}
+func (b BuildPluginImpl) PostProcessBranch() {
+	fmt.Println("Example Plugin: PostProcessBranch - Just finished processing a branch of an individual project")
+}
 
 // preProcessArtifacts (5) is run before processing the build artifacts of a branch
-func (t pluginName) preProcessArtifacts() {}
+func (b BuildPluginImpl) PreProcessArtifacts() {
+	fmt.Println("Example Plugin: PreProcessArtifacts - Just about to start processing artifacts for a branch of an individual project")
+}
 
 // postProcessArtifacts (6) is run after processing the build artifacts of a branch
-func (t pluginName) postProcessArtifacts() {}
+func (b BuildPluginImpl) PostProcessArtifacts() {
+	fmt.Println("Example Plugin: PreProcessArtifacts - Just finished processing artifacts for a branch of an individual project")
+}
 
-// Export BuildPlugin symbol
-var BuildPlugin pluginName
+var BuildPlugin BuildPluginImpl

@@ -50,14 +50,14 @@ var pwd string
 
 func processProjects(config *Configuration, cloneOpts *git.CloneOptions) {
 
-	log.Debug("Configuring WaitGroup")
+	Log.Debug("Configuring WaitGroup")
 	var w sync.WaitGroup
 	w.Add(len(config.Projects))
 
-	log.Infof("Running from \"%s\" with configured home directory \"%s\".\n", pwd, config.Home)
+	Log.Infof("Running from \"%s\" with configured home directory \"%s\".\n", pwd, config.Home)
 
 	if config.Async == true {
-		log.Debug("Asynchronous Mode Enabled: Projects will be built in parallel.")
+		Log.Debug("Asynchronous Mode Enabled: Projects will be built in parallel.")
 	}
 
 	for _, proj := range config.Projects {
@@ -67,23 +67,27 @@ func processProjects(config *Configuration, cloneOpts *git.CloneOptions) {
 				defer func() {
 					if r := recover(); r != nil {
 						if _, ok := r.(runtime.Error); ok {
-							log.Critical("Processing Project", proj.Path, "caused a runtime error:", r)
+							Log.Critical("Processing Project", proj.Path, "caused a runtime error:", r)
 							panic(r)
 						}
-						log.Error("Processing Project", proj.Path, "failed:", r)
+						Log.Error("Processing Project", proj.Path, "failed:", r)
 					} else {
-						log.Info("Processing Project", proj.Path, "completed")
+						Log.Info("Processing Project", proj.Path, "completed")
 					}
 				}()
 				defer w.Done()
-				log.Infof("Processing project \"%s\" from url: \"%s\" in asynchronous mode.\n", proj.Path, proj.URL)
+				Log.Infof("Processing project \"%s\" from url: \"%s\" in asynchronous mode.\n", proj.Path, proj.URL)
+				runPreProcessProject()
 				processRepo(config, proj, cloneOpts)
+				runPostProcessProject()
 			}(config, proj, cloneOpts)
 		} else {
 			// Async disabled, run normally in loop :-(
-			log.Debug("Asynchronous Mode Disabled: Projects will be built in sequence.")
-			log.Infof("Processing project \"%s\" from url: \"%s\".\n", proj.Path, proj.URL)
+			Log.Debug("Asynchronous Mode Disabled: Projects will be built in sequence.")
+			Log.Infof("Processing project \"%s\" from url: \"%s\".\n", proj.Path, proj.URL)
+			runPreProcessProject()
 			processRepo(config, proj, cloneOpts)
+			runPostProcessProject()
 		}
 	}
 
@@ -91,7 +95,7 @@ func processProjects(config *Configuration, cloneOpts *git.CloneOptions) {
 		w.Wait()
 	}
 
-	log.Info("Finished processing all configured projects.")
+	Log.Info("Finished processing all configured projects.")
 }
 
 func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.CloneOptions) {
@@ -101,79 +105,79 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 
 	pStart := time.Now()
 
-	log.Debugf(" [%s] - checking for existing clone...\n", proj.Path)
+	Log.Debugf(" [%s] - checking for existing clone...\n", proj.Path)
 
 	// Target working directory for this repo
 	twd = config.Home + "/projects/" + proj.Path
 
 	if _, err := os.Stat(twd); os.IsNotExist(err) {
-		log.Infof(" [%s] - project at \"%s\" does not exist, creating clone...\n", proj.Path, twd)
+		Log.Infof(" [%s] - project at \"%s\" does not exist, creating clone...\n", proj.Path, twd)
 		repo, err = cloneRepo(twd, proj.URL, proj.Path, cloneOpts)
 		if err != nil {
-			log.Critical(err)
+			Log.Critical(err)
 			panic(err)
 		}
 		fresh = true
 	}
 
 	if _, err := os.Stat(twd); err == nil {
-		log.Infof(" [%s] - opening repository in \"%s\"...\n", proj.Path, twd)
+		Log.Infof(" [%s] - opening repository in \"%s\"...\n", proj.Path, twd)
 		repo, err = git.OpenRepository(twd)
 		if err != nil {
-			log.Critical(err)
+			Log.Critical(err)
 			panic(err)
 		}
 	} else {
-		log.Debugf(" [%s] - error opening repository in \"%s\"\n", proj.Path, twd)
-		log.Critical(err)
+		Log.Debugf(" [%s] - error opening repository in \"%s\"\n", proj.Path, twd)
+		Log.Critical(err)
 		panic(err)
 	}
 
-	log.Debugf(" [%s] - loading repository configuration...\n", proj.Path)
+	Log.Debugf(" [%s] - loading repository configuration...\n", proj.Path)
 
 	repoConfig, err := repo.Config()
 	if err != nil {
-		log.Critical(err)
+		Log.Critical(err)
 		panic(err)
 	}
 	defer repoConfig.Free()
 
-	log.Debugf(" [%s] - enabling remote origin pruning...\n", proj.Path)
+	Log.Debugf(" [%s] - enabling remote origin pruning...\n", proj.Path)
 	repoConfig.SetBool("remote.origin.prune", true)
 
-	log.Debugf(" [%s] - testing repository type (isBare)...\n", proj.Path)
+	Log.Debugf(" [%s] - testing repository type (isBare)...\n", proj.Path)
 	if repo.IsBare() {
-		log.Debugf(" [%s] - bare repository loaded and configured\n", proj.Path)
+		Log.Debugf(" [%s] - bare repository loaded and configured\n", proj.Path)
 	} else {
-		log.Debugf(" [%s] - repository loaded and configured\n", proj.Path)
+		Log.Debugf(" [%s] - repository loaded and configured\n", proj.Path)
 	}
 
 	if fresh != true {
 		// This isn't a fresh clone, but an existing repo. Fetch changes...
-		log.Debugf(" [%s] - fetching changes from remote...\n", proj.Path)
+		Log.Debugf(" [%s] - fetching changes from remote...\n", proj.Path)
 		err = fetchChanges(repo, proj.URL, proj.Path)
 		if err != nil {
-			log.Errorf(" [%s] - failed to fetch changes from remote:\n", proj.Path)
-			log.Critical(err)
+			Log.Errorf(" [%s] - failed to fetch changes from remote:\n", proj.Path)
+			Log.Critical(err)
 		}
 
-		log.Debugf(" [%s] - pulling changes from remote...\n", proj.Path)
+		Log.Debugf(" [%s] - pulling changes from remote...\n", proj.Path)
 		err = pullChanges(repo, proj.Path)
 		if err != nil {
-			log.Errorf(" [%s] - failed to pull changes from remote:\n", proj.Path)
-			log.Critical(err)
+			Log.Errorf(" [%s] - failed to pull changes from remote:\n", proj.Path)
+			Log.Critical(err)
 		}
 	}
 
-	log.Debugf(" [%s] - loading object database\n", proj.Path)
+	Log.Debugf(" [%s] - loading object database\n", proj.Path)
 
 	odb, err := repo.Odb()
 	if err != nil {
-		log.Critical(err)
+		Log.Critical(err)
 		panic(err)
 	}
 
-	log.Debugf(" [%s] - counting objects\n", proj.Path)
+	Log.Debugf(" [%s] - counting objects\n", proj.Path)
 
 	odblen := 0
 	err = odb.ForEach(func(oid *git.Oid) error {
@@ -181,86 +185,89 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 		return nil
 	})
 	if err != nil {
-		log.Critical(err)
+		Log.Critical(err)
 		panic(err)
 	}
 
-	log.Debugf(" [%s] - object database loaded, %d objects.\n", proj.Path, odblen)
+	Log.Debugf(" [%s] - object database loaded, %d objects.\n", proj.Path, odblen)
 
-	log.Debugf(" [%s] - loading branch processing configuration...\n", proj.Path)
+	Log.Debugf(" [%s] - loading branch processing configuration...\n", proj.Path)
 	if proj.Branches[0] == "*" {
-		log.Debugf(" [%s] - project is configured to have all branches built.\n", proj.Path)
+		Log.Debugf(" [%s] - project is configured to have all branches built.\n", proj.Path)
 		proj.Branches = []string{"master", "develop"}
-		log.Warningf(" [%s] - project is set for wildcard branch build, but it is not yet supported; Only master and develop will be built.\n", proj.Path)
+		Log.Warningf(" [%s] - project is set for wildcard branch build, but it is not yet supported; Only master and develop will be built.\n", proj.Path)
 	} else {
-		log.Debugf(" [%s] - project is configured to have the following branches built: %s\n", proj.Path, strings.Join(proj.Branches[:], ", "))
+		Log.Debugf(" [%s] - project is configured to have the following branches built: %s\n", proj.Path, strings.Join(proj.Branches[:], ", "))
 	}
 
 	for _, branchName := range proj.Branches {
-		log.Debugf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
+		Log.Debugf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
 		bStart := time.Now()
 		err = checkoutBranch(repo, branchName)
 		if err != nil {
-			log.Critical(err)
+			Log.Critical(err)
 			panic(err)
 		}
 
-		log.Infof(" [%s] - pulling changes from remote for branch %s...\n", proj.Path, branchName)
+		Log.Infof(" [%s] - pulling changes from remote for branch %s...\n", proj.Path, branchName)
 		err = pullChanges(repo, proj.Path)
 		if err != nil {
-			log.Errorf(" [%s] - failed to pull changes from remote for branch %s:\n", proj.Path, branchName)
-			log.Critical(err)
+			Log.Errorf(" [%s] - failed to pull changes from remote for branch %s:\n", proj.Path, branchName)
+			Log.Critical(err)
 		}
 
 		description, err := describeWorkDir(repo, proj.Path)
 		if err != nil {
-			log.Errorf(" [%s] - failed to describe working directory state post-checkout for branch %s:\n", proj.Path, branchName)
-			log.Error(err)
+			Log.Errorf(" [%s] - failed to describe working directory state post-checkout for branch %s:\n", proj.Path, branchName)
+			Log.Error(err)
 		}
 		if description != "" {
-			log.Infof(" [%s] - on branch \"%s\", working directory is %s\n", proj.Path, branchName, description)
+			Log.Infof(" [%s] - on branch \"%s\", working directory is %s\n", proj.Path, branchName, description)
 		}
 
-		log.Infof(" [%s] - processing branch \"%s\"...\n", proj.Path, branchName)
+		Log.Infof(" [%s] - processing branch \"%s\"...\n", proj.Path, branchName)
+		runPreProcessBranch()
 		processBranch(config, proj, twd, branchName)
-		log.Infof(" [%s] - completed branch \"%s\" in: %s\n", proj.Path, branchName, time.Since(bStart))
+		runPostProcessBranch()
+		Log.Infof(" [%s] - completed branch \"%s\" in: %s\n", proj.Path, branchName, time.Since(bStart))
 	}
 
-	log.Infof(" [%s] - completed all configured branches in: %s\n", proj.Path, time.Since(pStart))
+	Log.Infof(" [%s] - completed all configured branches in: %s\n", proj.Path, time.Since(pStart))
 }
 
 func processBranch(config *Configuration, proj ProjectConfig, twd string, branchName string) {
 
-	log.Debugf(" [%s] - running project scripts...\n", proj.Path)
+	Log.Debugf(" [%s] - running project scripts...\n", proj.Path)
 
 	runProjectScripts(twd, branchName, proj)
 
-	log.Debugf(" [%s] - configuring artifacts pick-up path...\n", proj.Path)
+	Log.Debugf(" [%s] - configuring artifacts pick-up path...\n", proj.Path)
 	artifacts := twd + "/" + proj.Artifacts
 
 	if _, err := os.Stat(artifacts); os.IsNotExist(err) {
-		log.Warningf(" [%s] ! build artifacts could not be found, maybe the build failed?\n", proj.Path)
-		log.Infof(" [%s] ! expected build artifacts in: \"%s\"\n", proj.Path, artifacts)
-		log.Noticef(" [%s] ! no build will be published for this project/branch.\n", proj.Path)
+		Log.Warningf(" [%s] ! build artifacts could not be found, maybe the build failed?\n", proj.Path)
+		Log.Infof(" [%s] ! expected build artifacts in: \"%s\"\n", proj.Path, artifacts)
+		Log.Noticef(" [%s] ! no build will be published for this project/branch.\n", proj.Path)
 		return
 	}
 
 	if _, err := os.Stat(artifacts); err == nil {
-		log.Debugf(" [%s] - build artifacts found in: \"%s\"...\n", proj.Path, artifacts)
+		Log.Debugf(" [%s] - build artifacts found in: \"%s\"...\n", proj.Path, artifacts)
 	}
 
-	log.Debugf(" [%s] - processing artifacts from pick-up location...\n", proj.Path)
+	Log.Debugf(" [%s] - processing artifacts from pick-up location...\n", proj.Path)
+	runPreProcessArtifacts()
 	processArtifacts(config.Home, artifacts, proj.Path, branchName)
-
+	runPostProcessArtifacts()
 }
 
 func runProjectScripts(dir string, branchName string, proj ProjectConfig) {
-	log.Debugf(" [%s] - project has %d scripts configured\n", proj.Path, len(proj.Scripts))
+	Log.Debugf(" [%s] - project has %d scripts configured\n", proj.Path, len(proj.Scripts))
 
 	for _, script := range proj.Scripts {
 
 		// Setup the variables that can be substituted in the script for this run
-		log.Debugf(" [%s] - preparing project script: \"%s\"...\n", proj.Path, script)
+		Log.Debugf(" [%s] - preparing project script: \"%s\"...\n", proj.Path, script)
 
 		scriptSubs := scriptVariables{proj.Path, branchName, proj.URL, proj.Artifacts}
 
@@ -268,17 +275,17 @@ func runProjectScripts(dir string, branchName string, proj ProjectConfig) {
 		scriptFinal := &bytes.Buffer{}
 		tmpl.Execute(scriptFinal, scriptSubs)
 		if err != nil {
-			log.Critical(err)
+			Log.Critical(err)
 		}
 		scriptFinalStr := scriptFinal.String()
 
-		log.Debugf(" [%s] - executing project script: \"%s\"...\n", proj.Path, scriptFinalStr)
+		Log.Debugf(" [%s] - executing project script: \"%s\"...\n", proj.Path, scriptFinalStr)
 
 		stdout, err := execInDir(dir, scriptFinalStr)
 		if err != nil {
-			log.Debugf(" [%s] - error executing project script: \"%s\"...\n", proj.Path, scriptFinalStr)
-			log.Debugf("%s\n", string(stdout))
-			log.Critical(err)
+			Log.Debugf(" [%s] - error executing project script: \"%s\"...\n", proj.Path, scriptFinalStr)
+			Log.Debugf("%s\n", string(stdout))
+			Log.Critical(err)
 			panic(err)
 		}
 	}
@@ -297,33 +304,33 @@ func execInDir(dir string, command string) ([]byte, error) {
 }
 
 func processArtifacts(home string, artifacts string, project string, branchName string) {
-	log.Infof(" [%s] - processing build artifacts for project \"%s\", branch \"%s\".\n", project, project, branchName)
+	Log.Infof(" [%s] - processing build artifacts for project \"%s\", branch \"%s\".\n", project, project, branchName)
 
 	destParent := home + "/artifacts/" + project
 	destination := destParent + "/" + branchName
 
-	log.Debugf(" [%s] - build artifacts will be stored in: \"%s\".\n", project, destination)
+	Log.Debugf(" [%s] - build artifacts will be stored in: \"%s\".\n", project, destination)
 
-	log.Debugf(" [%s] - removing any previous artifacts from the destination\n", project)
+	Log.Debugf(" [%s] - removing any previous artifacts from the destination\n", project)
 	err := os.RemoveAll(destination)
 	if err != nil {
-		log.Critical(err)
+		Log.Critical(err)
 		panic(err)
 	}
 
-	log.Debugf(" [%s] - creating destination directory structure\n", project)
+	Log.Debugf(" [%s] - creating destination directory structure\n", project)
 	err = os.MkdirAll(destParent, 0755)
 	if err != nil {
-		log.Critical(err)
+		Log.Critical(err)
 		panic(err)
 	}
 
-	log.Debugf(" [%s] - moving build artifacts into destination\n", project)
+	Log.Debugf(" [%s] - moving build artifacts into destination\n", project)
 	err = os.Rename(artifacts, destination)
 	if err != nil {
-		log.Critical(err)
+		Log.Critical(err)
 		panic(err)
 	}
 
-	log.Debugf(" [%s] - artifact processing completed.\n", project)
+	Log.Debugf(" [%s] - artifact processing completed.\n", project)
 }

@@ -43,8 +43,10 @@ var (
 	BuildTime = "unspecified"
 )
 
-var log = logging.MustGetLogger("example")
+// Log is the logger interface
+var Log = logging.MustGetLogger("example")
 
+// format is the configured log string formatter
 var format = logging.MustStringFormatter(
 	`%{color}%{time:15:04:05.000} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}`,
 )
@@ -52,7 +54,7 @@ var format = logging.MustStringFormatter(
 func main() {
 	start := time.Now()
 
-	// Setup logger, defualt to INFO level
+	// Setup logger, default to INFO level
 	logBackend := logging.NewLogBackend(os.Stdout, "", 0)
 	logBackendFormatted := logging.NewBackendFormatter(logBackend, format)
 	logging.SetBackend(logBackendFormatted)
@@ -77,7 +79,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	log.Info("\n",
+	Log.Info("\n",
 		"go-build: Danw33's Multi-Project Build Utility\n",
 		"          Copyright © Daniel Wilson, MIT License\n",
 		"          https://github.com/Danw33/go-build\n",
@@ -86,20 +88,20 @@ func main() {
 		"          Host OS    : ", runtime.GOOS, "\n",
 		"          Host Arch  : ", runtime.GOARCH, "\n")
 
-	log.Debug("Finding working directory...")
+	Log.Debug("Finding working directory...")
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		log.Critical(err)
+		Log.Critical(err)
 		panic(err)
 	}
 	pwd = cwd
 
-	log.Debug("Reading configuration file...")
+	Log.Debug("Reading configuration file...")
 	configFile := ".build.json"
 	cfgByte, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		log.Critical(err)
+		Log.Critical(err)
 		panic(err)
 	}
 	cfg := string(cfgByte)
@@ -109,26 +111,30 @@ func main() {
 	if verbose == false {
 		level, err := logging.LogLevel(config.Log.Level)
 		if err != nil {
-			log.Critical(err)
+			Log.Critical(err)
 		}
 		logging.SetLevel(level, "")
 	}
 
 	// Check the configured home path
 	if config.Home == "" || config.Home == "./" {
-		log.Debugf("config.Home has been left blank or configured relative, the current working directory will be used.")
+		Log.Debugf("config.Home has been left blank or configured relative, the current working directory will be used.")
 		config.Home = pwd
 	}
 
-	log.Infof("Configuration Loaded.")
+	Log.Infof("Configuration Loaded.")
 
-	log.Infof("Loading Plugins...")
+	Log.Infof("Loading Plugins...")
 	loadPlugins(config)
+	runPostLoadPlugins()
 
 	cloneOpts := configureCloneOpts()
 
-	log.Debug("Starting Project Processor...")
-	processProjects(config, cloneOpts)
+	Log.Debug("Starting Project Processor...")
 
-	log.Infof("All projects completed in: %s", time.Since(start))
+	runPreProcessProjects()
+	processProjects(config, cloneOpts)
+	runPostProcessProjects()
+
+	Log.Infof("All projects completed in: %s", time.Since(start))
 }

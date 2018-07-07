@@ -30,6 +30,7 @@ import (
 	"encoding/json"
 )
 
+// Configuration defines the top-level structure used in the configuration file
 type Configuration struct {
 	Home     string          `json:"home"`
 	Async    bool            `json:"async"`
@@ -38,10 +39,14 @@ type Configuration struct {
 	Projects []ProjectConfig `json:"projects"`
 }
 
+// LogConfig defines the configuration available for the logger, and is utilised
+// within the Configuration struct
 type LogConfig struct {
 	Level string `json:"level"`
 }
 
+// ProjectConfig defines the project-level configuration, and is utilised within
+// the Configuration struct
 type ProjectConfig struct {
 	URL       string   `json:"url"`
 	Path      string   `json:"path"`
@@ -51,10 +56,12 @@ type ProjectConfig struct {
 	Scripts   []string `json:"scripts"`
 }
 
+// parseConfig takes the given json string and uses json.Unmarshal to parse it
+// using the Configuration struct
 func parseConfig(cfg string) *Configuration {
 	res := Configuration{}
-	log.Debug("Parsing Configuration using json.Unmarshal...\n")
+	Log.Debug("Parsing Configuration using json.Unmarshal...\n")
 	json.Unmarshal([]byte(cfg), &res)
-	log.Debugf("Loaded Configuration: %d Projects Configured.\n", len(res.Projects))
+	Log.Debugf("Loaded Configuration: %d Projects Configured.\n", len(res.Projects))
 	return &res
 }
