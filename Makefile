@@ -24,7 +24,8 @@ build-debug:
 	GOCACHE=off go build -x -tags nopkcs11 -ldflags='-X "main.Version=${VERSION}-dbg" -X "main.BuildTime=${BUILDTIME}"' -gcflags='all=-N -l -dwarflocationlists=true' -o ${BINARY}-dbg ./src
 
 build-plugins:
-	go build ${GOFLAGS} -buildmode=plugin ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} ./plugins/*.go
+	go build ${GOFLAGS} -buildmode=plugin ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} ./plugins/example/*.go
+	go build ${GOFLAGS} -buildmode=plugin ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} ./plugins/all-branches/*.go
 
 build-docker:
 	docker build -t ${VERSION} .
