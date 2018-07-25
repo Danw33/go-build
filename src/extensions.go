@@ -38,7 +38,7 @@ var buildPlugins []BuildPlugin
 
 // loadPlugins is responsible for reading, testing, and initialising plugins that
 // have been defined in the configuration file.
-func loadPlugins(config *Configuration) {
+func loadPlugins(config *Configuration, rawCfg []byte) {
 
 	// See if the config defines any plugins
 	if len(config.Plugins) == 0 {
@@ -79,7 +79,7 @@ func loadPlugins(config *Configuration) {
 		}
 
 		// Call the pluginInit for the current plugin
-		initErr := bp.PluginInit()
+		initErr := bp.PluginInit(rawCfg)
 		if initErr != nil {
 			Log.Errorf("Plugin loaded but failed to initialise: %v", initErr)
 			continue
@@ -95,64 +95,64 @@ func loadPlugins(config *Configuration) {
 }
 
 // postLoadPlugins (1) is the first fully-loaded hook, after all plugins are loaded
-func runPostLoadPlugins() {
+func runPostLoadPlugins(version string, buildTime string) {
 	for _, lp := range buildPlugins {
-		lp.PostLoadPlugins()
+		lp.PostLoadPlugins(version, buildTime)
 	}
 }
 
 // preProcessProjects (2) is run before processing all projects
-func runPreProcessProjects() {
+func runPreProcessProjects(workingDir string, homeDir string, async bool) {
 	for _, lp := range buildPlugins {
-		lp.PreProcessProjects()
+		lp.PreProcessProjects(workingDir, homeDir, async)
 	}
 }
 
 // postProcessProjects (9) is run after processing all projects
-func runPostProcessProjects() {
+func runPostProcessProjects(workingDir string, homeDir string, async bool) {
 	for _, lp := range buildPlugins {
-		lp.PostProcessProjects()
+		lp.PostProcessProjects(workingDir, homeDir, async)
 	}
 }
 
 // preProcessProject (3) is run before processing an individual project
-func runPreProcessProject() {
+func runPreProcessProject(url string, path string, artifacts string, branches []string, scripts []string) {
 	for _, lp := range buildPlugins {
-		lp.PreProcessProject()
+		lp.PreProcessProject(url, path, artifacts, branches, scripts)
 	}
 }
 
 // postProcessProject (8) is run after processing an individual project
-func runPostProcessProject() {
+func runPostProcessProject(url string, path string, artifacts string, branches []string, scripts []string) {
 	for _, lp := range buildPlugins {
-		lp.PostProcessProject()
+		lp.PostProcessProject(url, path, artifacts, branches, scripts)
 	}
 }
 
 // preProcessBranch (4) is run before processing a branch within a project
-func runPreProcessBranch() {
+func runPreProcessBranch(projectDir string, branchName string, workDirDesc string) {
 	for _, lp := range buildPlugins {
-		lp.PreProcessBranch()
+		lp.PreProcessBranch(projectDir, branchName, workDirDesc)
 	}
 }
 
 // postProcessBranch (7) is run after processing a branch within a project
-func runPostProcessBranch() {
+func runPostProcessBranch(projectDir string, branchName string, workDirDesc string) {
 	for _, lp := range buildPlugins {
-		lp.PostProcessBranch()
+		lp.PostProcessBranch(projectDir, branchName, workDirDesc)
 	}
 }
 
 // preProcessArtifacts (5) is run before processing the build artifacts of a branch
-func runPreProcessArtifacts() {
+func runPreProcessArtifacts(artifactPath string, projectPath string, branchName string) {
 	for _, lp := range buildPlugins {
-		lp.PreProcessArtifacts()
+		lp.PreProcessArtifacts(artifactPath, projectPath, branchName)
 	}
 }
 
 // postProcessArtifacts (6) is run after processing the build artifacts of a branch
-func runPostProcessArtifacts() {
+func runPostProcessArtifacts(artifactPath string, projectPath string, branchName string) {
 	for _, lp := range buildPlugins {
-		lp.PostProcessArtifacts()
+		lp.PostProcessArtifacts(artifactPath, projectPath, branchName)
 	}
 }

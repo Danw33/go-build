@@ -77,17 +77,17 @@ func processProjects(config *Configuration, cloneOpts *git.CloneOptions) {
 				}()
 				defer w.Done()
 				Log.Infof("Processing project \"%s\" from url: \"%s\" in asynchronous mode.\n", proj.Path, proj.URL)
-				runPreProcessProject()
+				runPreProcessProject(proj.URL, proj.Path, proj.Artifacts, proj.Branches, proj.Scripts)
 				processRepo(config, proj, cloneOpts)
-				runPostProcessProject()
+				runPostProcessProject(proj.URL, proj.Path, proj.Artifacts, proj.Branches, proj.Scripts)
 			}(config, proj, cloneOpts)
 		} else {
 			// Async disabled, run normally in loop :-(
 			Log.Debug("Asynchronous Mode Disabled: Projects will be built in sequence.")
 			Log.Infof("Processing project \"%s\" from url: \"%s\".\n", proj.Path, proj.URL)
-			runPreProcessProject()
+			runPreProcessProject(proj.URL, proj.Path, proj.Artifacts, proj.Branches, proj.Scripts)
 			processRepo(config, proj, cloneOpts)
-			runPostProcessProject()
+			runPostProcessProject(proj.URL, proj.Path, proj.Artifacts, proj.Branches, proj.Scripts)
 		}
 	}
 
@@ -226,9 +226,9 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 		}
 
 		Log.Infof(" [%s] - processing branch \"%s\"...\n", proj.Path, branchName)
-		runPreProcessBranch()
+		runPreProcessBranch(twd, branchName, description)
 		processBranch(config, proj, twd, branchName)
-		runPostProcessBranch()
+		runPostProcessBranch(twd, branchName, description)
 		Log.Infof(" [%s] - completed branch \"%s\" in: %s\n", proj.Path, branchName, time.Since(bStart))
 	}
 
@@ -256,9 +256,9 @@ func processBranch(config *Configuration, proj ProjectConfig, twd string, branch
 	}
 
 	Log.Debugf(" [%s] - processing artifacts from pick-up location...\n", proj.Path)
-	runPreProcessArtifacts()
+	runPreProcessArtifacts(artifacts, proj.Path, branchName)
 	processArtifacts(config.Home, artifacts, proj.Path, branchName)
-	runPostProcessArtifacts()
+	runPostProcessArtifacts(artifacts, proj.Path, branchName)
 }
 
 func runProjectScripts(dir string, branchName string, proj ProjectConfig) {
