@@ -39,6 +39,7 @@ func (b BuildPluginImpl) PreProcessProject(url *string, path *string, artifacts 
 
 	if confBranches[0] != "*" {
 		fmt.Println("All-Branches Plugin: Project", *path, "is NOT configured for all branches.")
+		return
 	}
 
 	fmt.Println("All-Branches Plugin: Enumerating remote branches for configured project", *path)
