@@ -126,15 +126,15 @@ func main() {
 
 	Log.Infof("Loading Plugins...")
 	loadPlugins(config, []byte(cfg))
-	runPostLoadPlugins(Version, BuildTime)
+	runPostLoadPlugins(&Version, &BuildTime)
 
 	cloneOpts := configureCloneOpts()
 
 	Log.Debug("Starting Project Processor...")
 
-	runPreProcessProjects(pwd, config.Home, config.Async)
+	runPreProcessProjects(&pwd, &config.Home, &config.Async)
 	processProjects(config, cloneOpts)
-	runPostProcessProjects(pwd, config.Home, config.Async)
+	runPostProcessProjects(&pwd, &config.Home, &config.Async)
 
 	Log.Infof("All projects completed in: %s", time.Since(start))
 }
