@@ -200,7 +200,11 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 		Log.Debugf(" [%s] - project is configured to have the following branches built: %s\n", proj.Path, strings.Join(proj.Branches[:], ", "))
 	}
 
+
+	processedBranches := 0
+
 	for _, branchName := range proj.Branches {
+		processedBranches++
 		Log.Debugf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
 		bStart := time.Now()
 		err = checkoutBranch(repo, branchName)
@@ -225,14 +229,14 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 			Log.Infof(" [%s] - on branch \"%s\", working directory is %s\n", proj.Path, branchName, description)
 		}
 
-		Log.Infof(" [%s] - processing branch \"%s\"...\n", proj.Path, branchName)
+		Log.Infof(" [%s] - processing branch %d \"%s\"...\n", proj.Path, processedBranches, branchName)
 		runPreProcessBranch(&twd, &branchName, &description)
 		processBranch(config, proj, twd, branchName)
 		runPostProcessBranch(&twd, &branchName, &description)
-		Log.Infof(" [%s] - completed branch \"%s\" in: %s\n", proj.Path, branchName, time.Since(bStart))
+		Log.Infof(" [%s] - completed branch %d \"%s\" in: %s\n", proj.Path, processedBranches, branchName, time.Since(bStart))
 	}
 
-	Log.Infof(" [%s] - completed all configured branches in: %s\n", proj.Path, time.Since(pStart))
+	Log.Infof(" [%s] - completed %d branches in: %s\n", proj.Path, processedBranches, time.Since(pStart))
 }
 
 func processBranch(config *Configuration, proj ProjectConfig, twd string, branchName string) {
