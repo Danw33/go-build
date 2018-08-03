@@ -327,7 +327,8 @@ func processArtifacts(home string, artifacts string, project string, branchName 
 	Log.Infof(" [%s] - processing build artifacts for project \"%s\", branch \"%s\".\n", project, project, branchName)
 
 	destination := home + "/artifacts/" + project + "/" + branchName
-	destParent := strings.TrimSuffix(destination, "/" + branchName)
+	destParts := strings.Split(destination, "/")
+	destParent := strings.Join(destParts[:len(destParts)-1], "/")
 
 	Log.Debugf(" [%s] - build artifacts will be stored in: \"%s\".\n", project, destination)
 
