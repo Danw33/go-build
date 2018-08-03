@@ -205,43 +205,57 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 
 	for _, branchName := range proj.Branches {
 		processedBranches++
-		Log.Debugf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
-		bStart := time.Now()
-		err = checkoutBranch(repo, branchName)
-		if err != nil {
-			Log.Critical(err)
-			panic(err)
-		}
-
-		Log.Infof(" [%s] - pulling changes from remote for branch %s...\n", proj.Path, branchName)
-		err = pullChanges(repo, proj.Path)
-		if err != nil {
-			Log.Errorf(" [%s] - failed to pull changes from remote for branch %s:\n", proj.Path, branchName)
-			Log.Critical(err)
-		}
-
-		description, err := describeWorkDir(repo, proj.Path)
-		if err != nil {
-			Log.Errorf(" [%s] - failed to describe working directory state post-checkout for branch %s:\n", proj.Path, branchName)
-			Log.Error(err)
-		}
-		if description != "" {
-			Log.Infof(" [%s] - on branch \"%s\", working directory is %s\n", proj.Path, branchName, description)
-		}
-
 		Log.Infof(" [%s] - processing branch %d \"%s\"...\n", proj.Path, processedBranches, branchName)
-		runPreProcessBranch(&twd, &branchName, &description)
-		processBranch(config, proj, twd, branchName)
-		runPostProcessBranch(&twd, &branchName, &description)
+		bStart := time.Now()
+		processBranch(config, proj, twd, branchName, repo)
 		Log.Infof(" [%s] - completed branch %d \"%s\" in: %s\n", proj.Path, processedBranches, branchName, time.Since(bStart))
 	}
 
 	Log.Infof(" [%s] - completed %d branches in: %s\n", proj.Path, processedBranches, time.Since(pStart))
 }
 
-func processBranch(config *Configuration, proj ProjectConfig, twd string, branchName string) {
+func processBranch(config *Configuration, proj ProjectConfig, twd string, branchName string, repo *git.Repository) {
 
 	Log.Debugf(" [%s] - running project scripts...\n", proj.Path)
+
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				Log.Critical("Processing project", proj.Path, "branch", branchName, "caused a runtime error:", r)
+				panic(r)
+			}
+			Log.Error("Processing project", proj.Path, "branch", branchName, "failed:", r)
+		} else {
+			Log.Info("Processing project", proj.Path, "branch", branchName, "completed.")
+		}
+	}()
+
+
+	Log.Debugf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
+
+	err := checkoutBranch(repo, branchName)
+	if err != nil {
+		Log.Critical(err)
+		panic(err)
+	}
+
+	Log.Infof(" [%s] - pulling changes from remote for branch %s...\n", proj.Path, branchName)
+	err = pullChanges(repo, proj.Path)
+	if err != nil {
+		Log.Errorf(" [%s] - failed to pull changes from remote for branch %s:\n", proj.Path, branchName)
+		Log.Critical(err)
+	}
+
+	description, err := describeWorkDir(repo, proj.Path)
+	if err != nil {
+		Log.Errorf(" [%s] - failed to describe working directory state post-checkout for branch %s:\n", proj.Path, branchName)
+		Log.Error(err)
+	}
+	if description != "" {
+		Log.Infof(" [%s] - on branch \"%s\", working directory is %s\n", proj.Path, branchName, description)
+	}
+
+	runPreProcessBranch(&twd, &branchName, &description)
 
 	runProjectScripts(twd, branchName, proj)
 
@@ -263,6 +277,8 @@ func processBranch(config *Configuration, proj ProjectConfig, twd string, branch
 	runPreProcessArtifacts(&artifacts, &proj.Path, &branchName)
 	processArtifacts(config.Home, artifacts, proj.Path, branchName)
 	runPostProcessArtifacts(&artifacts, &proj.Path, &branchName)
+
+	runPostProcessBranch(&twd, &branchName, &description)
 }
 
 func runProjectScripts(dir string, branchName string, proj ProjectConfig) {
