@@ -122,38 +122,56 @@ func pullChanges(repo *git.Repository, project string) error {
 
 	head, headErr := repo.Head()
 	if headErr != nil {
-		return nil
+		Log.Errorf(" [%s] - Error whilst finding current HEAD for repository!", project)
+		return headErr
 	}
 
 	if head == nil {
-		return errors.New("Failed to find current HEAD")
+		Log.Errorf(" [%s] - Failed to find current HEAD for repository!", project)
+		return errors.New("failed to find current HEAD")
 	}
 
 	// Find the branch name
 	branch := ""
-	branchElements := strings.Split(head.Name(), "/")
-	if len(branchElements) == 3 {
+	hName := head.Name()
+	Log.Debugf(" [%s] - Parsing head name '%s' to determine branch name", project, hName)
+	branchElements := strings.Split(hName, "/")
+	bECount := len(branchElements)
+	if bECount == 3 {
 		branch = branchElements[2]
+	} else if len(branchElements) > 3 {
+		branch = strings.Join(branchElements[2:], "/")
+	} else {
+		// Less than 3 or no count
+		Log.Errorf(" [%s] - Failed to determine branch name from repository head!", project)
+		return errors.New("invalid quantity of branch elements received for parsing")
 	}
+	Log.Debugf(" [%s] - Got branch name '%s' for head", project, branch)
 
 	// Get remote ref for current branch
 	remoteBranch, err := repo.References.Lookup("refs/remotes/origin/" + branch)
 	if err != nil {
+		Log.Errorf(" [%s] - Failed to get remote ref for branch '%s' when using 'refs/remotes/origin/%s' for lookup", project, branch, branch)
 		return err
 	}
+	Log.Debugf(" [%s] - Got remote ref for branch '%s' using 'refs/remotes/origin/%s'", project, branch, branch)
 
 	remoteBranchID := remoteBranch.Target()
 	// Get annotated commit
 	annotatedCommit, err := repo.AnnotatedCommitFromRef(remoteBranch)
 	if err != nil {
+		Log.Errorf(" [%s] - Failed to get annotated commit from remote branch ref '%s'!", project, remoteBranch)
 		return err
 	}
+	Log.Debugf(" [%s] - Got annotated commit from remote ref", project)
 
 	// Do the merge analysis
+	Log.Debugf(" [%s] - Performing merge analysis...", project)
 	mergeHeads := make([]*git.AnnotatedCommit, 1)
 	mergeHeads[0] = annotatedCommit
 	analysis, _, err := repo.MergeAnalysis(mergeHeads)
 	if err != nil {
+		Log.Errorf(" [%s] - Failed to perform merge analysis!", project)
 		return err
 	}
 

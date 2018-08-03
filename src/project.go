@@ -232,24 +232,24 @@ func processBranch(config *Configuration, proj ProjectConfig, twd string, branch
 
 
 	Log.Debugf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
-
-	err := checkoutBranch(repo, branchName)
-	if err != nil {
-		Log.Critical(err)
-		panic(err)
+	coErr := checkoutBranch(repo, branchName)
+	if coErr != nil {
+		Log.Errorf(" [%s] - failed to checkout branch %s:\n", proj.Path, branchName)
+		Log.Critical(coErr)
+		panic(coErr)
 	}
 
 	Log.Infof(" [%s] - pulling changes from remote for branch %s...\n", proj.Path, branchName)
-	err = pullChanges(repo, proj.Path)
-	if err != nil {
+	pullErr := pullChanges(repo, proj.Path)
+	if pullErr != nil {
 		Log.Errorf(" [%s] - failed to pull changes from remote for branch %s:\n", proj.Path, branchName)
-		Log.Critical(err)
+		Log.Critical(pullErr)
 	}
 
-	description, err := describeWorkDir(repo, proj.Path)
-	if err != nil {
+	description, descErr := describeWorkDir(repo, proj.Path)
+	if descErr != nil {
 		Log.Errorf(" [%s] - failed to describe working directory state post-checkout for branch %s:\n", proj.Path, branchName)
-		Log.Error(err)
+		Log.Error(descErr)
 	}
 	if description != "" {
 		Log.Infof(" [%s] - on branch \"%s\", working directory is %s\n", proj.Path, branchName, description)
@@ -262,7 +262,7 @@ func processBranch(config *Configuration, proj ProjectConfig, twd string, branch
 	Log.Debugf(" [%s] - configuring artifacts pick-up path...\n", proj.Path)
 	artifacts := twd + "/" + proj.Artifacts
 
-	if _, err := os.Stat(artifacts); os.IsNotExist(err) {
+	if _, afErr := os.Stat(artifacts); os.IsNotExist(afErr) {
 		Log.Warningf(" [%s] ! build artifacts could not be found, maybe the build failed?\n", proj.Path)
 		Log.Infof(" [%s] ! expected build artifacts in: \"%s\"\n", proj.Path, artifacts)
 		Log.Noticef(" [%s] ! no build will be published for this project/branch.\n", proj.Path)
