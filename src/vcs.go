@@ -158,8 +158,11 @@ func pullChanges(repo *git.Repository, project string) error {
 	}
 
 	if analysis&git.MergeAnalysisUpToDate != 0 {
+		Log.Debugf(" [%s] - Merge Analysis: Up-to-date!", project)
 		return nil
 	} else if analysis&git.MergeAnalysisNormal != 0 {
+		Log.Debugf(" [%s] - Merge Analysis: Not Normal", project)
+
 		// Just merge changes
 		if err := repo.Merge([]*git.AnnotatedCommit{annotatedCommit}, nil, nil); err != nil {
 			return err
@@ -167,71 +170,95 @@ func pullChanges(repo *git.Repository, project string) error {
 		// Check for conflicts
 		index, err := repo.Index()
 		if err != nil {
+			Log.Errorf(" [%s] - Failed to determine the repository index!", project)
 			return err
 		}
+		Log.Debugf(" [%s] - Repository index acquired", project)
 
 		if index.HasConflicts() {
-			return errors.New("Conflicts encountered. Please resolve them")
+			Log.Errorf(" [%s] - Merge analysis found conflicts!", project)
+			return errors.New("conflicts encountered. Please resolve them")
 		}
+		Log.Debugf(" [%s] - Merge analysis did not find any conflicts.", project)
 
 		// Make the merge commit
 		sig, err := repo.DefaultSignature()
 		if err != nil {
+			Log.Errorf(" [%s] - Error performing merge commit using default signature", project)
 			return err
 		}
+		Log.Debugf(" [%s] - Merge commit completed using default signature", project)
 
 		// Get Write Tree
 		treeID, err := index.WriteTree()
 		if err != nil {
+			Log.Errorf(" [%s] - Failed to get the write tree from the current index!", project)
 			return err
 		}
+		Log.Debugf(" [%s] - Write Tree ID acquired from index", project)
 
 		tree, err := repo.LookupTree(treeID)
 		if err != nil {
 			return err
 		}
+		Log.Debugf(" [%s] - Tree lookup completed based on write tree ID", project)
 
 		localCommit, err := repo.LookupCommit(head.Target())
 		if err != nil {
+			Log.Errorf(" [%s] - Failed to lookup local commit from head target!", project)
 			return err
 		}
+		Log.Debugf(" [%s] - Local commit for head target found", project)
 
 		remoteCommit, err := repo.LookupCommit(remoteBranchID)
 		if err != nil {
+			Log.Errorf(" [%s] - Failed to lookup remote commit from remote branch ID '%s'!", project, remoteBranchID)
 			return err
 		}
+		Log.Debugf(" [%s] - Remote commit for remote branch ID '%s' found", project, remoteBranchID)
 
 		repo.CreateCommit("HEAD", sig, sig, "", tree, localCommit, remoteCommit)
 
 		// Clean up
+		Log.Debugf(" [%s] - Performing state cleanup post-commit", project)
 		repo.StateCleanup()
 	} else if analysis&git.MergeAnalysisFastForward != 0 {
+		Log.Debugf(" [%s] - Merge Analysis: Fast-Forward", project)
+
 		// Fast-forward changes
 		// Get remote tree
 		remoteTree, err := repo.LookupTree(remoteBranchID)
 		if err != nil {
+			Log.Errorf(" [%s] - Failed to lookup remote tree for remote branch ID '%s' during fast-forward!", project, remoteBranchID)
 			return err
 		}
+		Log.Debugf(" [%s] - Found remote tree for remote branch ID '%s'", project, remoteBranchID)
 
 		// Checkout
 		if coErr := repo.CheckoutTree(remoteTree, nil); coErr != nil {
+			Log.Errorf(" [%s] - Failed to checkout remote tree during fast-forward!", project)
 			return coErr
 		}
+		Log.Debugf(" [%s] - Checked out remote tree", project)
 
 		branchRef, err := repo.References.Lookup("refs/heads/" + branch)
 		if err != nil {
+			Log.Errorf(" [%s] - Failed to lookup branch ref for '%s' as 'refs/heads/%s' during fast-forward!", project, branch, branch)
 			return err
 		}
+		Log.Debugf(" [%s] - Looked up branch ref for '%s' as 'refs/heads/%s'.", project, branch, branch)
 
 		// Point branch to the object
 		branchRef.SetTarget(remoteBranchID, "")
 		if _, err := head.SetTarget(remoteBranchID, ""); err != nil {
+			Log.Errorf(" [%s] - Failed to set branch ref to target object ID; Fast forward failed!", project)
 			return err
 		}
+		Log.Debugf(" [%s] - Set branch ref to target object ID, Fast-forward complete.", project)
 
 	} else {
 		Log.Errorf(" [%s] - Unexpected merge analysis result %d", project, analysis)
-		return errors.New("Unexpected merge analysis result")
+		return errors.New("unexpected merge analysis result")
 	}
 
 	return nil
@@ -276,7 +303,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 		}
 	}
 	if localBranch == nil {
-		return errors.New("Error while locating/creating local branch")
+		return errors.New("error while locating/creating local branch")
 	}
 	defer localBranch.Free()
 
