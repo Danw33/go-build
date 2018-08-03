@@ -326,30 +326,30 @@ func execInDir(dir string, command string) ([]byte, error) {
 func processArtifacts(home string, artifacts string, project string, branchName string) {
 	Log.Infof(" [%s] - processing build artifacts for project \"%s\", branch \"%s\".\n", project, project, branchName)
 
-	destParent := home + "/artifacts/" + project
-	destination := destParent + "/" + branchName
+	destination := home + "/artifacts/" + project + "/" + branchName
+	destParent := strings.TrimSuffix(destination, "/" + branchName)
 
 	Log.Debugf(" [%s] - build artifacts will be stored in: \"%s\".\n", project, destination)
 
 	Log.Debugf(" [%s] - removing any previous artifacts from the destination\n", project)
-	err := os.RemoveAll(destination)
-	if err != nil {
-		Log.Critical(err)
-		panic(err)
+	rmErr := os.RemoveAll(destination)
+	if rmErr != nil {
+		Log.Critical(rmErr)
+		panic(rmErr)
 	}
 
 	Log.Debugf(" [%s] - creating destination directory structure\n", project)
-	err = os.MkdirAll(destParent, 0755)
-	if err != nil {
-		Log.Critical(err)
-		panic(err)
+	mkErr := os.MkdirAll(destParent, 0755)
+	if mkErr != nil {
+		Log.Critical(mkErr)
+		panic(mkErr)
 	}
 
 	Log.Debugf(" [%s] - moving build artifacts into destination\n", project)
-	err = os.Rename(artifacts, destination)
-	if err != nil {
-		Log.Critical(err)
-		panic(err)
+	mvErr := os.Rename(artifacts, destination)
+	if mvErr != nil {
+		Log.Critical(mvErr)
+		panic(mvErr)
 	}
 
 	Log.Debugf(" [%s] - artifact processing completed.\n", project)
