@@ -26,6 +26,7 @@ build-debug:
 build-plugins:
 	go build ${GOFLAGS} -buildmode=plugin ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} ./plugins/example/*.go
 	go build ${GOFLAGS} -buildmode=plugin ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} ./plugins/all-branches/*.go
+	go build ${GOFLAGS} -buildmode=plugin ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} ./plugins/index-generator/*.go
 
 build-docker:
 	docker build -t ${VERSION} .
