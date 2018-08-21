@@ -13,6 +13,8 @@ It contains the definition of the repositories that will be built, including the
 location (URL and Path), branches, scrips, and artifacts.
   - `home` - The "home" directory under which the utility will run (must be writable)
   - `async` - `true` to run builds in parallel, `false` to run in sequence.
+  - `metrics` - Set this to `false` to disable remote reporting of errors
+  - `ravendsn` - Use this to specify your own metrics DSN (Sentry), or leave blank to use the built-in DSN
   - `log` - Logger Configuration
     - `level` -  Log level, one of: `critical` (lowest), `error`, `warning`, `notice`, `info` (default), or `debug` (highest).
   - `plugins` - Array of plugin file names to extend go-build functionality (extensions)
@@ -133,6 +135,9 @@ make pack # Optional: Pack the binary using UPX
 ### Building on Windows (win32)
 
 Building `go-build` on Windows has not yet been attempted, if you have successfully compiled `libssh2`, `libgit2` and `go-build` to run natively under win32 please feel free to document it here and [open a PR](https://github.com/Danw33/go-build/pulls).
+
+## Metrics
+As of [v1.1.0]() of `go-build`
 
 ## License
 

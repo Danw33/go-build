@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/op/go-logging"
+	"github.com/getsentry/raven-go"
 )
 
 var (
@@ -107,10 +108,38 @@ func main() {
 	cfg := string(cfgByte)
 	config := parseConfig(cfg)
 
-	// Adjust the log level agian, this time from the confguration file, but only if verbose isn't passed
+	// Prepare Raven
+	if config.Metrics != false {
+		// Metrics are enabled (well... not disabled)
+		if config.RavenDSN != "" {
+			// Use the custom DSN from the config
+			Log.Info("Metrics are enabled using a custom DSN")
+			raven.SetDSN( config.RavenDSN )
+		} else {
+			// Use the go-build master DSN
+			Log.Info("Metrics are enabled using the default DSN")
+			raven.SetDSN("https://b5e7240f7ba34112a46080e6064de695:3c281fda39154166abe538d1c50f6f7f@sentry.io/1265577")
+		}
+	} else {
+		Log.Info("Metrics have been disabled")
+	}
+
+	var tags map[string]string
+	tags = make(map[string]string)
+
+	tags["version"] = Version
+	tags["buildtime"] = BuildTime
+	tags["goos"] = runtime.GOOS
+	tags["goarch"] = runtime.GOARCH
+
+	raven.SetRelease(Version)
+	raven.SetTagsContext(tags)
+
+	// Adjust the log level again, this time from the configuration file, but only if verbose isn't passed
 	if verbose == false {
 		level, err := logging.LogLevel(config.Log.Level)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Critical(err)
 		}
 		logging.SetLevel(level, "")

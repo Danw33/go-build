@@ -28,6 +28,8 @@ package main
 
 import (
 	"plugin"
+
+	"github.com/getsentry/raven-go"
 )
 
 // loadedPlugins contains the raw plugins loaded from the filesystem
@@ -67,6 +69,7 @@ func loadPlugins(config *Configuration, rawCfg []byte) {
 		// Lookup the symbol
 		sym, err := p.Lookup("BuildPlugin")
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf("Plugin exports no BuildPlugin symbol: %v", err)
 			continue
 		}
@@ -81,6 +84,7 @@ func loadPlugins(config *Configuration, rawCfg []byte) {
 		// Call the pluginInit for the current plugin
 		initErr := bp.PluginInit(rawCfg)
 		if initErr != nil {
+			raven.CaptureError(initErr, nil)
 			Log.Errorf("Plugin loaded but failed to initialise: %v", initErr)
 			continue
 		}

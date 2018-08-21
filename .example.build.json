@@ -1,6 +1,8 @@
 {
   "home": "/tmp/builds",
   "async": true,
+  "metrics": true,
+  "ravendsn": "",
   "log": {
     "level": "info"
   },

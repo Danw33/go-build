@@ -35,6 +35,8 @@ type Configuration struct {
 	Home     string          `json:"home"`
 	Async    bool            `json:"async"`
 	Log      LogConfig       `json:"log"`
+	Metrics  bool            `json:"metrics"`
+	RavenDSN string          `json:"ravendsn"`
 	Plugins  []string        `json:"plugins"`
 	Projects []ProjectConfig `json:"projects"`
 }

@@ -29,7 +29,9 @@ package main
 import (
 	"errors"
 	"strings"
+
 	"github.com/libgit2/git2go"
+	"github.com/getsentry/raven-go"
 )
 
 func configureCloneOpts() *git.CloneOptions {
@@ -71,6 +73,7 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 	// Clone
 	repo, err := git.Clone(url, twd, cloneOpts)
 	if err != nil {
+		raven.CaptureError(err, nil)
 		return nil, err
 	}
 
@@ -79,6 +82,7 @@ func cloneRepo(twd string, url string, path string, cloneOpts *git.CloneOptions)
 	// Get HEAD ref
 	head, err := repo.Head()
 	if err != nil {
+		raven.CaptureError(err, nil)
 		return nil, err
 	}
 
@@ -96,6 +100,7 @@ func fetchChanges(repo *git.Repository, fallbackURL string, project string) erro
 		Log.Debugf(" [%s] - Remote \"origin\" does not exist, setting it to the configured project URL...", project)
 		remote, err = repo.Remotes.Create("origin", fallbackURL)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			return err
 		}
 	}
@@ -112,6 +117,7 @@ func fetchChanges(repo *git.Repository, fallbackURL string, project string) erro
 	Log.Debugf(" [%s] - Fetching changes from remote \"origin\"...", project)
 	err = remote.Fetch([]string{}, fopts, "")
 	if err != nil {
+		raven.CaptureError(err, nil)
 		return err
 	}
 
@@ -151,6 +157,7 @@ func pullChanges(repo *git.Repository, project string) error {
 	// Get remote ref for current branch
 	remoteBranch, err := repo.References.Lookup("refs/remotes/origin/" + branch)
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Errorf(" [%s] - Failed to get remote ref for branch '%s' when using 'refs/remotes/origin/%s' for lookup", project, branch, branch)
 		return err
 	}
@@ -160,6 +167,7 @@ func pullChanges(repo *git.Repository, project string) error {
 	// Get annotated commit
 	annotatedCommit, err := repo.AnnotatedCommitFromRef(remoteBranch)
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Errorf(" [%s] - Failed to get annotated commit from remote branch ref '%s'!", project, remoteBranch)
 		return err
 	}
@@ -171,6 +179,7 @@ func pullChanges(repo *git.Repository, project string) error {
 	mergeHeads[0] = annotatedCommit
 	analysis, _, err := repo.MergeAnalysis(mergeHeads)
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Errorf(" [%s] - Failed to perform merge analysis!", project)
 		return err
 	}
@@ -183,11 +192,13 @@ func pullChanges(repo *git.Repository, project string) error {
 
 		// Just merge changes
 		if err := repo.Merge([]*git.AnnotatedCommit{annotatedCommit}, nil, nil); err != nil {
+			raven.CaptureError(err, nil)
 			return err
 		}
 		// Check for conflicts
 		index, err := repo.Index()
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - Failed to determine the repository index!", project)
 			return err
 		}
@@ -202,6 +213,7 @@ func pullChanges(repo *git.Repository, project string) error {
 		// Make the merge commit
 		sig, err := repo.DefaultSignature()
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - Error performing merge commit using default signature", project)
 			return err
 		}
@@ -210,6 +222,7 @@ func pullChanges(repo *git.Repository, project string) error {
 		// Get Write Tree
 		treeID, err := index.WriteTree()
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - Failed to get the write tree from the current index!", project)
 			return err
 		}
@@ -217,12 +230,14 @@ func pullChanges(repo *git.Repository, project string) error {
 
 		tree, err := repo.LookupTree(treeID)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			return err
 		}
 		Log.Debugf(" [%s] - Tree lookup completed based on write tree ID", project)
 
 		localCommit, err := repo.LookupCommit(head.Target())
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - Failed to lookup local commit from head target!", project)
 			return err
 		}
@@ -230,6 +245,7 @@ func pullChanges(repo *git.Repository, project string) error {
 
 		remoteCommit, err := repo.LookupCommit(remoteBranchID)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - Failed to lookup remote commit from remote branch ID '%s'!", project, remoteBranchID)
 			return err
 		}
@@ -247,6 +263,7 @@ func pullChanges(repo *git.Repository, project string) error {
 		// Get remote tree
 		remoteTree, err := repo.LookupTree(remoteBranchID)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - Failed to lookup remote tree for remote branch ID '%s' during fast-forward!", project, remoteBranchID)
 			return err
 		}
@@ -254,6 +271,7 @@ func pullChanges(repo *git.Repository, project string) error {
 
 		// Checkout
 		if coErr := repo.CheckoutTree(remoteTree, nil); coErr != nil {
+			raven.CaptureError(coErr, nil)
 			Log.Errorf(" [%s] - Failed to checkout remote tree during fast-forward!", project)
 			return coErr
 		}
@@ -261,6 +279,7 @@ func pullChanges(repo *git.Repository, project string) error {
 
 		branchRef, err := repo.References.Lookup("refs/heads/" + branch)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - Failed to lookup branch ref for '%s' as 'refs/heads/%s' during fast-forward!", project, branch, branch)
 			return err
 		}
@@ -269,6 +288,7 @@ func pullChanges(repo *git.Repository, project string) error {
 		// Point branch to the object
 		branchRef.SetTarget(remoteBranchID, "")
 		if _, err := head.SetTarget(remoteBranchID, ""); err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - Failed to set branch ref to target object ID; Fast forward failed!", project)
 			return err
 		}
@@ -290,6 +310,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	//Getting the reference for the remote branch
 	remoteBranch, err := repo.LookupBranch("origin/"+branchName, git.BranchRemote)
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Error("Failed to find remote branch: " + branchName)
 		return err
 	}
@@ -298,6 +319,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Lookup for commit from remote branch
 	commit, err := repo.LookupCommit(remoteBranch.Target())
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Error("Failed to find remote branch commit: " + branchName)
 		return err
 	}
@@ -309,6 +331,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 		// Creating local branch
 		localBranch, err = repo.CreateBranch(branchName, commit, false)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Error("Failed to create local branch: " + branchName)
 			return err
 		}
@@ -316,6 +339,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 		// Setting upstream to origin branch
 		err = localBranch.SetUpstream("origin/" + branchName)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Error("Failed to create upstream to origin/" + branchName)
 			return err
 		}
@@ -328,6 +352,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Getting the tree for the branch
 	localCommit, err := repo.LookupCommit(localBranch.Target())
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Error("Failed to lookup for commit in local branch " + branchName)
 		return err
 	}
@@ -335,6 +360,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 
 	tree, err := repo.LookupTree(localCommit.TreeId())
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Error("Failed to lookup for tree " + branchName)
 		return err
 	}
@@ -343,6 +369,7 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 	// Checkout the tree
 	err = repo.CheckoutTree(tree, checkoutOpts)
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Error("Failed to checkout tree " + branchName)
 		return err
 	}
@@ -355,24 +382,28 @@ func checkoutBranch(repo *git.Repository, branchName string) error {
 func describeWorkDir(repo *git.Repository, project string) (string, error) {
 	describeOpts, err := git.DefaultDescribeOptions()
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Error("Failed to load git describe options for project " + project)
 		return "", err
 	}
 
 	formatOpts, err := git.DefaultDescribeFormatOptions()
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Error("Failed to load git describe format options for project " + project)
 		return "", err
 	}
 
 	result, err := repo.DescribeWorkdir(&describeOpts)
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Error("Failed to describe working directory for project " + project)
 		return "", err
 	}
 
 	resultStr, err := result.Format(&formatOpts)
 	if err != nil {
+		raven.CaptureError(err, nil)
 		Log.Error("Failed to format working directory description for project " + project)
 		return "", err
 	}

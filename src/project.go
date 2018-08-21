@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/libgit2/git2go"
+	"github.com/getsentry/raven-go"
 )
 
 type scriptVariables struct {
@@ -114,6 +115,7 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 		Log.Infof(" [%s] - project at \"%s\" does not exist, creating clone...\n", proj.Path, twd)
 		repo, err = cloneRepo(twd, proj.URL, proj.Path, cloneOpts)
 		if err != nil {
+			raven.CaptureErrorAndWait(err, nil)
 			Log.Critical(err)
 			panic(err)
 		}
@@ -124,11 +126,13 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 		Log.Infof(" [%s] - opening repository in \"%s\"...\n", proj.Path, twd)
 		repo, err = git.OpenRepository(twd)
 		if err != nil {
+			raven.CaptureErrorAndWait(err, nil)
 			Log.Critical(err)
 			panic(err)
 		}
 	} else {
 		Log.Debugf(" [%s] - error opening repository in \"%s\"\n", proj.Path, twd)
+		raven.CaptureErrorAndWait(err, nil)
 		Log.Critical(err)
 		panic(err)
 	}
@@ -137,6 +141,7 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 
 	repoConfig, err := repo.Config()
 	if err != nil {
+		raven.CaptureErrorAndWait(err, nil)
 		Log.Critical(err)
 		panic(err)
 	}
@@ -157,6 +162,7 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 		Log.Debugf(" [%s] - fetching changes from remote...\n", proj.Path)
 		err = fetchChanges(repo, proj.URL, proj.Path)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - failed to fetch changes from remote:\n", proj.Path)
 			Log.Critical(err)
 		}
@@ -164,6 +170,7 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 		Log.Debugf(" [%s] - pulling changes from remote...\n", proj.Path)
 		err = pullChanges(repo, proj.Path)
 		if err != nil {
+			raven.CaptureError(err, nil)
 			Log.Errorf(" [%s] - failed to pull changes from remote:\n", proj.Path)
 			Log.Critical(err)
 		}
@@ -173,6 +180,7 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 
 	odb, err := repo.Odb()
 	if err != nil {
+		raven.CaptureErrorAndWait(err, nil)
 		Log.Critical(err)
 		panic(err)
 	}
@@ -185,6 +193,7 @@ func processRepo(config *Configuration, proj ProjectConfig, cloneOpts *git.Clone
 		return nil
 	})
 	if err != nil {
+		raven.CaptureErrorAndWait(err, nil)
 		Log.Critical(err)
 		panic(err)
 	}
@@ -234,6 +243,7 @@ func processBranch(config *Configuration, proj ProjectConfig, twd string, branch
 	Log.Debugf(" [%s] - checking out branch \"%s\"...\n", proj.Path, branchName)
 	coErr := checkoutBranch(repo, branchName)
 	if coErr != nil {
+		raven.CaptureErrorAndWait(coErr, nil)
 		Log.Errorf(" [%s] - failed to checkout branch %s:\n", proj.Path, branchName)
 		Log.Critical(coErr)
 		panic(coErr)
@@ -242,6 +252,7 @@ func processBranch(config *Configuration, proj ProjectConfig, twd string, branch
 	Log.Infof(" [%s] - pulling changes from remote for branch %s...\n", proj.Path, branchName)
 	pullErr := pullChanges(repo, proj.Path)
 	if pullErr != nil {
+		raven.CaptureError(pullErr, nil)
 		Log.Errorf(" [%s] - failed to pull changes from remote for branch %s:\n", proj.Path, branchName)
 		Log.Critical(pullErr)
 	}
@@ -317,6 +328,7 @@ func execInDir(dir string, command string) ([]byte, error) {
 	cmd.Dir = dir
 	data, err := cmd.Output()
 	if err != nil {
+		raven.CaptureError(err, nil)
 		return data, err
 	}
 
@@ -335,6 +347,7 @@ func processArtifacts(home string, artifacts string, project string, branchName 
 	Log.Debugf(" [%s] - removing any previous artifacts from the destination\n", project)
 	rmErr := os.RemoveAll(destination)
 	if rmErr != nil {
+		raven.CaptureErrorAndWait(rmErr, nil)
 		Log.Critical(rmErr)
 		panic(rmErr)
 	}
@@ -342,6 +355,7 @@ func processArtifacts(home string, artifacts string, project string, branchName 
 	Log.Debugf(" [%s] - creating destination directory structure\n", project)
 	mkErr := os.MkdirAll(destParent, 0755)
 	if mkErr != nil {
+		raven.CaptureErrorAndWait(mkErr, nil)
 		Log.Critical(mkErr)
 		panic(mkErr)
 	}
@@ -349,6 +363,7 @@ func processArtifacts(home string, artifacts string, project string, branchName 
 	Log.Debugf(" [%s] - moving build artifacts into destination\n", project)
 	mvErr := os.Rename(artifacts, destination)
 	if mvErr != nil {
+		raven.CaptureErrorAndWait(mvErr, nil)
 		Log.Critical(mvErr)
 		panic(mvErr)
 	}
