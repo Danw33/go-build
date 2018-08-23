@@ -50,12 +50,14 @@ func loadPlugins(config *Configuration, rawCfg []byte) {
 
 	// Load in plugin files
 	for _, pFile := range config.Plugins {
-		if plug, err := plugin.Open(pFile); err == nil {
-			loadedPlugins = append(loadedPlugins, plug)
-		} else {
-			Log.Criticalf("Failed to load plugin \"%s\"", pFile)
-			Log.Critical(err)
-		}
+		raven.CapturePanic(func() {
+			if plug, err := plugin.Open(pFile); err == nil {
+				loadedPlugins = append(loadedPlugins, plug)
+			} else {
+				Log.Criticalf("Failed to load plugin \"%s\"", pFile)
+				Log.Critical(err)
+			}
+		}, nil)
 	}
 
 	// See if we loaded any plugins from the disk
@@ -101,62 +103,80 @@ func loadPlugins(config *Configuration, rawCfg []byte) {
 // postLoadPlugins (1) is the first fully-loaded hook, after all plugins are loaded
 func runPostLoadPlugins(version *string, buildTime *string) {
 	for _, lp := range buildPlugins {
-		lp.PostLoadPlugins(version, buildTime)
+		raven.CapturePanic(func() {
+			lp.PostLoadPlugins(version, buildTime)
+		}, nil)
 	}
 }
 
 // preProcessProjects (2) is run before processing all projects
 func runPreProcessProjects(workingDir *string, homeDir *string, async *bool) {
 	for _, lp := range buildPlugins {
-		lp.PreProcessProjects(workingDir, homeDir, async)
+		raven.CapturePanic(func() {
+			lp.PreProcessProjects(workingDir, homeDir, async)
+		}, nil)
 	}
 }
 
 // postProcessProjects (9) is run after processing all projects
 func runPostProcessProjects(workingDir *string, homeDir *string, async *bool) {
 	for _, lp := range buildPlugins {
-		lp.PostProcessProjects(workingDir, homeDir, async)
+		raven.CapturePanic(func() {
+			lp.PostProcessProjects(workingDir, homeDir, async)
+		}, nil)
 	}
 }
 
 // preProcessProject (3) is run before processing an individual project
 func runPreProcessProject(url *string, path *string, artifacts *string, branches *[]string, scripts *[]string) {
 	for _, lp := range buildPlugins {
-		lp.PreProcessProject(url, path, artifacts, branches, scripts)
+		raven.CapturePanic(func() {
+			lp.PreProcessProject(url, path, artifacts, branches, scripts)
+		}, nil)
 	}
 }
 
 // postProcessProject (8) is run after processing an individual project
 func runPostProcessProject(url *string, path *string, artifacts *string, branches *[]string, scripts *[]string) {
 	for _, lp := range buildPlugins {
-		lp.PostProcessProject(url, path, artifacts, branches, scripts)
+		raven.CapturePanic(func() {
+			lp.PostProcessProject(url, path, artifacts, branches, scripts)
+		}, nil)
 	}
 }
 
 // preProcessBranch (4) is run before processing a branch within a project
 func runPreProcessBranch(projectDir *string, branchName *string, workDirDesc *string) {
 	for _, lp := range buildPlugins {
-		lp.PreProcessBranch(projectDir, branchName, workDirDesc)
+		raven.CapturePanic(func() {
+			lp.PreProcessBranch(projectDir, branchName, workDirDesc)
+		}, nil)
 	}
 }
 
 // postProcessBranch (7) is run after processing a branch within a project
 func runPostProcessBranch(projectDir *string, branchName *string, workDirDesc *string) {
 	for _, lp := range buildPlugins {
-		lp.PostProcessBranch(projectDir, branchName, workDirDesc)
+		raven.CapturePanic(func() {
+			lp.PostProcessBranch(projectDir, branchName, workDirDesc)
+		}, nil)
 	}
 }
 
 // preProcessArtifacts (5) is run before processing the build artifacts of a branch
 func runPreProcessArtifacts(artifactPath *string, projectPath *string, branchName *string) {
 	for _, lp := range buildPlugins {
-		lp.PreProcessArtifacts(artifactPath, projectPath, branchName)
+		raven.CapturePanic(func() {
+			lp.PreProcessArtifacts(artifactPath, projectPath, branchName)
+		}, nil)
 	}
 }
 
 // postProcessArtifacts (6) is run after processing the build artifacts of a branch
 func runPostProcessArtifacts(artifactPath *string, projectPath *string, branchName *string) {
 	for _, lp := range buildPlugins {
-		lp.PostProcessArtifacts(artifactPath, projectPath, branchName)
+		raven.CapturePanic(func() {
+			lp.PostProcessArtifacts(artifactPath, projectPath, branchName)
+		}, nil)
 	}
 }
