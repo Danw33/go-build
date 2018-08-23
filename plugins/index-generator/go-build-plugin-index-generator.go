@@ -56,10 +56,9 @@ func (b BuildPluginImpl) PluginInit(rawConfig []byte) error {
 
 // postLoadPlugins (1) is the first fully-loaded hook, after all plugins are loaded
 func (b BuildPluginImpl) PostLoadPlugins(version *string, buildTime *string) {
-	fmt.Println("Indexes Plugin: Index Generator running against core version", *version)
 	coreVersion = *version
 	coreBuildTime = *buildTime
-	loadBaseTemplate( "index-template.html" )
+	fmt.Println("Indexes Plugin: Index Generator running against core version", coreVersion, buildTime)
 }
 
 // preProcessProjects (2) is run before processing all projects
@@ -72,8 +71,19 @@ func (b BuildPluginImpl) PreProcessProjects(workingDir *string, homeDir *string,
 
 // postProcessProjects (9) is run after processing all projects
 func (b BuildPluginImpl) PostProcessProjects(workingDir *string, homeDir *string, async *bool) {
+
+	// Create the badge images
 	processBadges()
+
+	// Load the badge image markup for use in the template
+	loadBadgeMarkup()
+
+	// Load the index template
+	loadBaseTemplate( "index-template.html" )
+
+	// Generate the index pages
 	processIndices()
+
 }
 
 // preProcessProject (3) is run before processing an individual project
@@ -150,6 +160,36 @@ func processBadges () {
 	indexPluginFetchBadge(apiBase + timestampBadgeUrl, fileBase + "/artifacts.svg")
 }
 
+func loadBadgeMarkup () {
+
+	fileBase := artifactsDirectory + "go-build-badges"
+
+	badgeVersionByte, err := ioutil.ReadFile(fileBase + "/version.svg")
+	if err != nil {
+		fmt.Println(err)
+	}
+	badgeVersionMarkup = string(badgeVersionByte)
+
+	badgeArtifactsByte, err := ioutil.ReadFile(fileBase + "/artifacts.svg")
+	if err != nil {
+		fmt.Println(err)
+	}
+	badgeArtifactsMarkup = string(badgeArtifactsByte)
+
+	badgeProjectsByte, err := ioutil.ReadFile(fileBase + "/projects.svg")
+	if err != nil {
+		fmt.Println(err)
+	}
+	badgeProjectsMarkup = string(badgeProjectsByte)
+
+	badgeBranchesByte, err := ioutil.ReadFile(fileBase + "/branches.svg")
+	if err != nil {
+		fmt.Println(err)
+	}
+	badgeBranchesMarkup = string(badgeBranchesByte)
+
+}
+
 func indexPluginFetchBadge( url string, fileName string ) {
 
 	parts := strings.Fields( "wget -O " + fileName + " " + url )
@@ -217,7 +257,7 @@ func processIndices () {
 	for _, project := range projectNames {
 		branches := branchNames[project]
 		branchLinks := generateBranchLinks(branches)
-		thisBranchIndex := processIndexTemplate(indexTemplate, "Branches in " + project, "<a href=\"../\">Projects</a> > <a href=\"#\">" + project + "</a>", branchLinks)
+		thisBranchIndex := processIndexTemplate(indexTemplate, "Branches in " + project, "<a href=\"../index.html\">Projects</a> > <a href=\"#\">" + project + "</a>", branchLinks)
 
 		// Open the file for writing
 		bFile, err := os.Create( artifactsDirectory + project + "/index.html" )
