@@ -12,6 +12,7 @@ export PKG_CONFIG_PATH="/usr/local/opt/openssl/lib/pkgconfig:/usr/local/lib/pkgc
 # Fetch go packages
 go get -d github.com/op/go-logging
 go get -d github.com/libgit2/git2go
+go get -d github.com/getsentry/raven-go
 
 rm -rf vendor; mkdir vendor ; cd vendor
 vendor="$(pwd)"
