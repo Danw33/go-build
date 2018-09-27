@@ -38,6 +38,8 @@ import (
 
 	"github.com/libgit2/git2go"
 	"github.com/getsentry/raven-go"
+	"strconv"
+	"path/filepath"
 )
 
 type scriptVariables struct {
@@ -286,7 +288,7 @@ func processBranch(config *Configuration, proj ProjectConfig, twd string, branch
 
 	Log.Debugf(" [%s] - processing artifacts from pick-up location...\n", proj.Path)
 	runPreProcessArtifacts(&artifacts, &proj.Path, &branchName)
-	processArtifacts(config.Home, artifacts, proj.Path, branchName)
+	processArtifacts(config.Home, twd, artifacts, proj.Path, branchName)
 	runPostProcessArtifacts(&artifacts, &proj.Path, &branchName)
 
 	runPostProcessBranch(&twd, &branchName, &description)
@@ -299,7 +301,7 @@ func runProjectScripts(dir string, branchName string, proj ProjectConfig) {
 	for _, script := range proj.Scripts {
 
 		// Setup the variables that can be substituted in the script for this run
-		Log.Debugf(" [%s] - preparing project script: \"%s\"...\n", proj.Path, script)
+		Log.Debugf(" [%s] - preparing project script %d: \"%s\"...\n", proj.Path, scriptIndex, script)
 
 		scriptSubs := scriptVariables{proj.Path, branchName, proj.URL, proj.Artifacts}
 
@@ -311,10 +313,10 @@ func runProjectScripts(dir string, branchName string, proj ProjectConfig) {
 		}
 		scriptFinalStr := scriptFinal.String()
 
-		Log.Debugf(" [%s] - executing project script: \"%s\"...\n", proj.Path, scriptFinalStr)
+		Log.Debugf(" [%s] - executing project script %d: \"%s\"...\n", proj.Path, scriptIndex, scriptFinalStr)
 
 		stdout, stderr, err := execInDir(dir, scriptFinalStr)
-		writeProjectLogs(stdout, stderr, scriptIndex, dir + "/" + proj.Artifacts)
+		writeProjectLogs(stdout, stderr, scriptIndex, dir)
 		if err != nil {
 			Log.Debugf(" [%s] - error executing project script %d: \"%s\"...\n", proj.Path, scriptIndex, scriptFinalStr)
 			Log.Debugf("%s\n", string(stdout))
@@ -351,7 +353,7 @@ func execInDir(dir string, command string) (string, string, error) {
 
 func writeProjectLogs( stdout string, stderr string, index int, dir string ) {
 	// Open the output log for writing
-	soLogFile, soErr := os.Create( dir + "/go-build-stdout_" + string(index) + ".log" )
+	soLogFile, soErr := os.Create( dir + "/go-build-stdout_" + strconv.Itoa(index) + ".log" )
 	if soErr != nil {
 		// Fatal error
 		raven.CaptureErrorAndWait(soErr, nil)
@@ -369,7 +371,7 @@ func writeProjectLogs( stdout string, stderr string, index int, dir string ) {
 	soLogFile.Close()
 
 	// Open the error log for writing
-	seLogFile, seErr := os.Create( dir + "/go-build-stderr_" + string(index) + ".log" )
+	seLogFile, seErr := os.Create( dir + "/go-build-stderr_" + strconv.Itoa(index) + ".log" )
 	if seErr != nil {
 		// Fatal error
 		raven.CaptureErrorAndWait(seErr, nil)
@@ -387,7 +389,7 @@ func writeProjectLogs( stdout string, stderr string, index int, dir string ) {
 	seLogFile.Close()
 }
 
-func processArtifacts(home string, artifacts string, project string, branchName string) {
+func processArtifacts(home string, projectDir string, artifacts string, project string, branchName string) {
 	Log.Infof(" [%s] - processing build artifacts for project \"%s\", branch \"%s\".\n", project, project, branchName)
 
 	destination := home + "/artifacts/" + project + "/" + branchName
@@ -418,6 +420,28 @@ func processArtifacts(home string, artifacts string, project string, branchName 
 		raven.CaptureErrorAndWait(mvErr, nil)
 		Log.Critical(mvErr)
 		panic(mvErr)
+	}
+
+	logGlob := projectDir + "/*.log"
+	Log.Debugf(" [%s] - searching for build logs using glob: \"%s\"\n", project, logGlob)
+	logFiles, lfErr := filepath.Glob(logGlob)
+	if lfErr != nil {
+		raven.CaptureErrorAndWait(lfErr, nil)
+		Log.Critical(lfErr)
+		panic(lfErr)
+	}
+
+	Log.Debugf(" [%s] - project has %d log files\n", project, len(logFiles))
+
+	for _, f := range logFiles {
+		lFile := filepath.Base(f)
+		Log.Debugf(" [%s] - moving log file \"%s\" to destination\n", project, lFile)
+		mvLfErr := os.Rename(f, destination + "/" + lFile)
+			if mvLfErr != nil {
+			raven.CaptureErrorAndWait(mvLfErr, nil)
+			Log.Critical(mvLfErr)
+			panic(mvLfErr)
+		}
 	}
 
 	Log.Debugf(" [%s] - artifact processing completed.\n", project)
