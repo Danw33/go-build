@@ -295,6 +295,7 @@ func processBranch(config *Configuration, proj ProjectConfig, twd string, branch
 func runProjectScripts(dir string, branchName string, proj ProjectConfig) {
 	Log.Debugf(" [%s] - project has %d scripts configured\n", proj.Path, len(proj.Scripts))
 
+	scriptIndex := 0
 	for _, script := range proj.Scripts {
 
 		// Setup the variables that can be substituted in the script for this run
@@ -312,27 +313,78 @@ func runProjectScripts(dir string, branchName string, proj ProjectConfig) {
 
 		Log.Debugf(" [%s] - executing project script: \"%s\"...\n", proj.Path, scriptFinalStr)
 
-		stdout, err := execInDir(dir, scriptFinalStr)
+		stdout, stderr, err := execInDir(dir, scriptFinalStr)
+		writeProjectLogs(stdout, stderr, scriptIndex, dir + "/" + proj.Artifacts)
 		if err != nil {
-			Log.Debugf(" [%s] - error executing project script: \"%s\"...\n", proj.Path, scriptFinalStr)
+			Log.Debugf(" [%s] - error executing project script %d: \"%s\"...\n", proj.Path, scriptIndex, scriptFinalStr)
 			Log.Debugf("%s\n", string(stdout))
+			Log.Errorf("%s\n", string(stderr))
 			Log.Critical(err)
 			panic(err)
 		}
+
+		scriptIndex++
 	}
 }
 
-func execInDir(dir string, command string) ([]byte, error) {
+func execInDir(dir string, command string) (string, string, error) {
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
 	parts := strings.Fields(command)
+
 	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Dir = dir
-	data, err := cmd.Output()
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
 	if err != nil {
 		raven.CaptureError(err, nil)
-		return data, err
+		return stdout.String(), stderr.String(), err
 	}
 
-	return data, nil
+	return stdout.String(), stderr.String(), nil
+}
+
+func writeProjectLogs( stdout string, stderr string, index int, dir string ) {
+	// Open the output log for writing
+	soLogFile, soErr := os.Create( dir + "/go-build-stdout_" + string(index) + ".log" )
+	if soErr != nil {
+		// Fatal error
+		raven.CaptureErrorAndWait(soErr, nil)
+		Log.Critical(soErr)
+	}
+
+	// Write the output to the file
+	_, soErr = soLogFile.WriteString(stdout)
+	if soErr != nil {
+		// Fatal error
+		raven.CaptureErrorAndWait(soErr, nil)
+		Log.Critical(soErr)
+	}
+
+	soLogFile.Close()
+
+	// Open the error log for writing
+	seLogFile, seErr := os.Create( dir + "/go-build-stderr_" + string(index) + ".log" )
+	if seErr != nil {
+		// Fatal error
+		raven.CaptureErrorAndWait(seErr, nil)
+		Log.Critical(seErr)
+	}
+
+	// Write the output to the file
+	_, seErr = seLogFile.WriteString(stderr)
+	if seErr != nil {
+		// Fatal error
+		raven.CaptureErrorAndWait(seErr, nil)
+		Log.Critical(seErr)
+	}
+
+	seLogFile.Close()
 }
 
 func processArtifacts(home string, artifacts string, project string, branchName string) {
