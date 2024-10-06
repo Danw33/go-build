@@ -170,7 +170,7 @@ As of [v1.1.0](https://github.com/Danw33/go-build/releases/tag/1.1.0) of `go-bui
 
 [`go-build`](https://github.com/Danw33/go-build) and included plugins are released under the MIT License
 
-Copyright © 2017 - 2018 Daniel Wilson
+Copyright © 2017 - 2024 Daniel Wilson
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
